@@ -22,11 +22,14 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 CACHE_DIR = DATA_DIR / "cache"
 REGISTRY = DATA_DIR / "snapshots.json"
 
-#: The fixed basket. SPY is the growth sleeve; TLT/GLD are the defensive sleeves.
-DEFAULT_TICKERS = ("SPY", "TLT", "GLD")
+#: The fixed basket. SPY is the growth sleeve; TLT/GLD/BIL are the defensive sleeves.
+#: BIL is included so "exit to cash" earns real T-bill yields rather than a
+#: fictional 0%, which is one of the commonest ways a timing backtest distorts.
+DEFAULT_TICKERS = ("SPY", "TLT", "GLD", "BIL")
 
-#: Common history across the basket starts here (TLT lists 2002, GLD 2004).
-DEFAULT_START = "2004-11-18"
+#: Common history across the basket. BIL is the binding constraint (lists 2007-05);
+#: the sample still contains 2008, 2015, 2018, 2020, 2022 and 2025 drawdowns.
+DEFAULT_START = "2004-11-18"  # actual start is set by the shortest series
 
 
 class SnapshotError(RuntimeError):
@@ -141,7 +144,9 @@ def load(snapshot_id: str | None = None) -> tuple[pd.DataFrame, Snapshot]:
     if not registry:
         raise SnapshotError("No snapshots exist. Run: python -m backtest.cli snapshot")
 
-    snapshot_id = snapshot_id or max(registry)
+    # Order by creation time, not by id: ids are `date-checksum`, so the checksum
+    # half sorts arbitrarily and lexicographic "max" can select an older snapshot.
+    snapshot_id = snapshot_id or max(registry, key=lambda key: registry[key]["created"])
     if snapshot_id not in registry:
         raise SnapshotError(f"Unknown snapshot {snapshot_id!r}. Have: {sorted(registry)}")
 

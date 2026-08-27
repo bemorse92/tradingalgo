@@ -4,6 +4,7 @@
     python -m backtest.cli snapshots           # list pinned snapshots
     python -m backtest.cli ledger              # show the trial ledger
     python -m backtest.cli run <strategy>      # sweep a strategy's grid
+    python -m backtest.cli robustness <strat>  # start-date and cost sweeps
 """
 
 from __future__ import annotations
@@ -13,9 +14,13 @@ import importlib
 import inspect
 import sys
 
-from . import data, engine, ledger, report
+from . import data, engine, ledger, report, runner, validate
 from .runner import RunReport, run_strategy
 from .strategy import Strategy
+
+#: Start dates for the robustness sweep. 2010 excludes the GFC entirely, which is
+#: the single most informative row: it separates "the rule works" from "2008 happened".
+START_DATES = ("2007-05-30", "2010-01-04", "2013-01-02", "2016-01-04")
 
 
 def _load_strategy(name: str) -> type[Strategy]:
@@ -75,11 +80,61 @@ def _print_report(rep: RunReport) -> None:
         "  Look for a flat neighbourhood, not a peak."
     )
 
+    print(report.section("Followability (whipsaw / regret)"))
+    print(report.regret(rep.regret))
+    print(
+        "\n  A rule only pays if it is followed through the stretches where it looks\n"
+        "  stupid. This is what killed the commercial tactical funds."
+    )
+
     print(report.section("Per-event attribution (benchmark drawdowns > 10%)"))
     print(report.attribution(rep.attribution))
     print(
         "\n  If protection comes from one event, the edge is that event, not the rule."
     )
+
+
+def _print_robustness(strategy_cls, prices, snapshot, cost_bps: float) -> None:
+    """Start-date and cost sweeps, both logged as `robustness` rather than search."""
+    print(report.section(f"{strategy_cls.name}: start-date sweep"))
+    print(
+        "  A single start date is a hidden parameter. The post-2008 row is the one\n"
+        "  that matters: if the edge needs 2008, the finding is that 2008 happened.\n"
+    )
+    rows = []
+    for start, rep in runner.start_date_sweep(
+        strategy_cls, prices, snapshot, START_DATES, cost_bps=cost_bps
+    ):
+        best = rep.best_by_drawdown
+        rows.append(
+            {
+                "from": start,
+                "years": f"{len(rep.benchmark.equity) / 252:.1f}",
+                "cagr": report.pct(best.metrics["cagr"]),
+                "bench cagr": report.pct(rep.benchmark_metrics["cagr"]),
+                "max_dd": report.pct(best.metrics["max_drawdown"]),
+                "bench dd": report.pct(rep.benchmark_metrics["max_drawdown"]),
+                "dd saved": report.pct(
+                    best.metrics["max_drawdown"] - rep.benchmark_metrics["max_drawdown"]
+                ),
+            }
+        )
+    print(report.table(rows))
+
+    print(report.section(f"{strategy_cls.name}: cost sensitivity"))
+    print("  A result that dies at 20 bps on liquid ETFs was never real.\n")
+    rows = []
+    for bps, rep in runner.cost_sweep(strategy_cls, prices, snapshot):
+        best = rep.best_by_drawdown
+        rows.append(
+            {
+                "bps": f"{bps:.0f}",
+                "cagr": report.pct(best.metrics["cagr"]),
+                "max_dd": report.pct(best.metrics["max_drawdown"]),
+                "sharpe": f"{best.metrics['sharpe']:.3f}",
+            }
+        )
+    print(report.table(rows))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -93,6 +148,11 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("snapshots", help="list pinned snapshots")
     sub.add_parser("ledger", help="show the trial ledger")
+
+    rob = sub.add_parser("robustness", help="start-date and cost sweeps (logged as robustness)")
+    rob.add_argument("strategy")
+    rob.add_argument("--snapshot", default=None)
+    rob.add_argument("--cost-bps", type=float, default=engine.DEFAULT_COST_BPS)
 
     run = sub.add_parser("run", help="sweep a strategy's declared grid")
     run.add_argument("strategy", help="module name under strategies/")
@@ -139,6 +199,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     prices, snapshot = data.load(args.snapshot)
+    if args.command == "robustness":
+        strategy_cls = _load_strategy(args.strategy)
+        usable = validate.apply_holdout(prices)
+        _print_robustness(strategy_cls, usable, snapshot, args.cost_bps)
+        return 0
+
     strategy_cls = _load_strategy(args.strategy)
     rep = run_strategy(
         strategy_cls,

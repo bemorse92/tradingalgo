@@ -16,9 +16,9 @@ from .strategy import Strategy
 STRATEGY_DIR = Path(__file__).resolve().parent.parent / "strategies"
 
 #: Date from which data is reserved and must not inform strategy development.
-#: Still to be decided -- see design_docs/scaffolding.md, "Still open". While None,
-#: the gate is inert and `require_prereg` is the only pre-run check with teeth.
-HOLDOUT_START: str | None = None
+#: Reserves 2023 onward (~17% of the sample). In-sample keeps 2008, 2015, 2018,
+#: 2020 and 2022 to develop against; the holdout keeps the 2025 drawdown unseen.
+HOLDOUT_START: str | None = "2023-01-01"
 
 _TOLERANCE = 1e-12
 

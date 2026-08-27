@@ -73,3 +73,15 @@ def test_start_date_sweep_produces_one_report_per_window(sandbox, prices):
     assert [start for start, _ in reports] == ["2010-01-04", "2011-01-03"]
     assert reports[0][1].sample_start != reports[1][1].sample_start
     assert ledger.trial_count() == 6  # both windows logged
+
+
+def test_best_by_drawdown_breaks_ties_deterministically(sandbox, prices):
+    """Variants sharing an identical drawdown must not report an arbitrary winner."""
+    report = runner.run_strategy(HonestTrend, prices, SNAPSHOT)
+    for trial in report.trials:
+        trial.metrics["max_drawdown"] = -0.25  # force an exact tie
+    report.trials[0].metrics["cagr"] = 0.01
+    report.trials[1].metrics["cagr"] = 0.09
+    report.trials[2].metrics["cagr"] = 0.05
+
+    assert report.best_by_drawdown is report.trials[1]

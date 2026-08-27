@@ -112,3 +112,40 @@ def test_attribution_reports_protection_per_event():
 
     assert len(frame) == 2
     assert (frame["protection"] > 0).all()  # defensive curve lost less every time
+
+
+def test_relative_drawdown_measures_shortfall_against_the_benchmark():
+    index = pd.bdate_range("2020-01-01", periods=4)
+    benchmark = pd.Series([1.0, 1.0, 2.0, 2.0], index=index)
+    strategy = pd.Series([1.0, 1.0, 1.0, 1.0], index=index)
+    # Relative curve peaks at 1.0 then halves as the benchmark doubles away.
+    assert stats.relative_drawdown(strategy, benchmark) == pytest.approx(-0.5)
+
+
+def test_relative_drawdown_is_zero_when_never_behind():
+    index = pd.bdate_range("2020-01-01", periods=4)
+    benchmark = pd.Series([1.0, 1.0, 1.0, 1.0], index=index)
+    strategy = pd.Series([1.0, 1.1, 1.2, 1.3], index=index)
+    assert stats.relative_drawdown(strategy, benchmark) == pytest.approx(0.0)
+
+
+def test_longest_underperformance_counts_the_worst_stretch():
+    index = pd.bdate_range("2020-01-01", periods=7)
+    benchmark = pd.Series([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], index=index)
+    # Behind for three bars, recovers to a new peak, then behind for one.
+    strategy = pd.Series([1.0, 0.9, 0.9, 0.9, 1.2, 1.1, 1.3], index=index)
+    assert stats.longest_underperformance(strategy, benchmark) == 3
+
+
+def test_regret_bundle_has_the_followability_numbers():
+    index = pd.bdate_range("2020-01-01", periods=300)
+    benchmark = pd.Series(1.0, index=index).cumsum() / 300 + 1.0
+    strategy = pd.Series(1.0, index=index)
+    bundle = stats.regret(strategy, benchmark)
+
+    assert set(bundle) == {
+        "relative_drawdown",
+        "worst_1y_shortfall",
+        "longest_underperformance_days",
+    }
+    assert bundle["relative_drawdown"] < 0  # flat strategy falls behind a rising benchmark

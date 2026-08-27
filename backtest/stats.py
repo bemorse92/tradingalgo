@@ -172,6 +172,66 @@ def attribution(
 
 
 # --------------------------------------------------------------------------- #
+# Whipsaw / regret: is the rule actually followable?
+# --------------------------------------------------------------------------- #
+#
+# A rule only pays if it is followed through the stretches where it looks stupid,
+# and manual execution makes abandonment easy. These are the numbers that killed
+# the commercial tactical funds -- not their returns, but how long investors had
+# to stomach trailing the benchmark.
+
+
+def relative_equity(strategy_equity: pd.Series, benchmark_equity: pd.Series) -> pd.Series:
+    """Strategy divided by benchmark. Falling means losing ground."""
+    return strategy_equity / benchmark_equity
+
+
+def relative_drawdown(strategy_equity: pd.Series, benchmark_equity: pd.Series) -> float:
+    """Worst cumulative shortfall from a peak of relative performance.
+
+    The single best summary of "how far behind buy-and-hold did this fall".
+    """
+    return max_drawdown(relative_equity(strategy_equity, benchmark_equity))
+
+
+def worst_rolling_underperformance(
+    strategy_equity: pd.Series,
+    benchmark_equity: pd.Series,
+    window: int = TRADING_DAYS,
+) -> float:
+    """Worst trailing-window return shortfall against the benchmark."""
+    rel = relative_equity(strategy_equity, benchmark_equity)
+    return float(rel.pct_change(window, fill_method=None).min())
+
+
+def longest_underperformance(strategy_equity: pd.Series, benchmark_equity: pd.Series) -> int:
+    """Longest unbroken stretch, in bars, spent below a relative peak.
+
+    The endurance number: how long you would have had to keep following a rule
+    that was visibly losing to simply holding SPY.
+    """
+    rel = relative_equity(strategy_equity, benchmark_equity)
+    underwater = (rel < rel.cummax() - _EPSILON).to_numpy()
+
+    longest = current = 0
+    for wet in underwater:
+        current = current + 1 if wet else 0
+        longest = max(longest, current)
+    return longest
+
+
+def regret(strategy_equity: pd.Series, benchmark_equity: pd.Series) -> dict[str, float]:
+    """The followability bundle."""
+    return {
+        "relative_drawdown": relative_drawdown(strategy_equity, benchmark_equity),
+        "worst_1y_shortfall": worst_rolling_underperformance(strategy_equity, benchmark_equity),
+        "longest_underperformance_days": float(
+            longest_underperformance(strategy_equity, benchmark_equity)
+        ),
+    }
+
+
+# --------------------------------------------------------------------------- #
 # Multiple-testing corrections
 # --------------------------------------------------------------------------- #
 

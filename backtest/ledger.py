@@ -25,6 +25,7 @@ LEDGER_PATH = RESULTS_DIR / "trials.csv"
 FIELDS = (
     "timestamp",
     "strategy",
+    "kind",
     "params",
     "snapshot_id",
     "start",
@@ -65,6 +66,7 @@ def log_trial(
     cost_bps: float,
     declared_n: int,
     metrics: dict[str, float],
+    kind: str = "search",
     used_holdout: bool = False,
     note: str = "",
 ) -> None:
@@ -74,6 +76,7 @@ def log_trial(
     row = {
         "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
         "strategy": strategy_name,
+        "kind": kind,
         "params": json.dumps(params, sort_keys=True, default=str),
         "snapshot_id": snapshot_id,
         "start": start,
@@ -109,15 +112,23 @@ def trial_count(strategy_name: str | None = None) -> int:
     return len(ledger)
 
 
-def sharpes(strategy_name: str | None = None) -> list[float]:
-    """Every Sharpe ever recorded, for deflating the winner.
+def sharpes(strategy_name: str | None = None, kind: str | None = "search") -> list[float]:
+    """Sharpes for deflating the winner.
 
-    Deliberately spans all strategies by default: the multiple-testing correction
-    should account for the whole search, not just the branch that succeeded.
+    Spans all strategies by default: the multiple-testing correction should
+    account for the whole search, not just the branch that succeeded.
+
+    Only `search` trials count by default. N in the deflated Sharpe means
+    *configurations selected among*, not re-runs of one configuration under
+    different conditions. Counting robustness checks would penalise exactly the
+    behaviour the project wants to encourage, identically to p-hacking, which it
+    wants to discourage. Pass kind=None to see everything.
     """
     ledger = read()
     if strategy_name is not None:
         ledger = ledger[ledger["strategy"] == strategy_name]
+    if kind is not None and "kind" in ledger.columns:
+        ledger = ledger[ledger["kind"] == kind]
     if ledger.empty:
         return []
     return [float(s) for s in pd.to_numeric(ledger["sharpe"], errors="coerce").dropna()]

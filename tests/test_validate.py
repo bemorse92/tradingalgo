@@ -6,6 +6,7 @@ peeking, rather than passing everything it is ever shown.
 
 from __future__ import annotations
 
+import pandas as pd
 import pytest
 
 from backtest import validate
@@ -27,9 +28,16 @@ def test_missing_prereg_blocks_the_run(prices):
         validate.require_prereg(HonestTrend())
 
 
-def test_holdout_is_inert_until_configured(prices):
-    """HOLDOUT_START is still undecided; the gate must not silently truncate."""
-    assert validate.HOLDOUT_START is None
+def test_holdout_is_armed(prices):
+    """The gate is live: 2023 onward is reserved and must not leak into a run."""
+    assert validate.HOLDOUT_START == "2023-01-01"
+
+    withheld = validate.apply_holdout(prices)
+    assert withheld.index.max() < pd.Timestamp(validate.HOLDOUT_START)
+
+
+def test_holdout_is_inert_when_unset(prices, monkeypatch):
+    monkeypatch.setattr(validate, "HOLDOUT_START", None)
     assert len(validate.apply_holdout(prices)) == len(prices)
 
 

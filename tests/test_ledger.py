@@ -61,3 +61,18 @@ def test_sharpes_span_all_strategies_by_default(temp_ledger):
 def test_holdout_access_is_recorded(temp_ledger):
     _log(used_holdout=True)
     assert bool(ledger.read()["used_holdout"].iloc[0]) is True
+
+
+def test_robustness_trials_are_logged_but_do_not_deflate(temp_ledger):
+    """N means configurations selected among, not re-runs of one configuration.
+
+    Counting robustness checks would penalise the behaviour the project wants to
+    encourage identically to p-hacking, which it wants to discourage.
+    """
+    _log(sharpe=1.0, kind="search")
+    for _ in range(20):
+        _log(sharpe=0.4, kind="robustness")
+
+    assert ledger.trial_count() == 21  # everything is on the record
+    assert ledger.sharpes() == [1.0]  # only the search trial deflates
+    assert len(ledger.sharpes(kind=None)) == 21

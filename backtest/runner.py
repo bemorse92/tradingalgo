@@ -44,11 +44,18 @@ class RunReport:
     benchmark_metrics: dict[str, float]
     trials: list[TrialResult] = field(default_factory=list)
     attribution: pd.DataFrame = field(default_factory=pd.DataFrame)
+    regret: dict[str, float] = field(default_factory=dict)
 
     @property
     def best_by_drawdown(self) -> TrialResult:
-        """Shallowest drawdown -- the project's stated bar, not the best return."""
-        return max(self.trials, key=lambda t: t.metrics["max_drawdown"])
+        """Shallowest drawdown -- the project's stated bar, not the best return.
+
+        Ties break on CAGR. Without a deterministic tie-break, strategies whose
+        variants share an identical drawdown (common when they all sit through the
+        same crash) report an arbitrary variant, which makes sweeps look
+        non-monotonic for no real reason.
+        """
+        return max(self.trials, key=lambda t: (t.metrics["max_drawdown"], t.metrics["cagr"]))
 
 
 def run_strategy(
@@ -57,6 +64,7 @@ def run_strategy(
     snapshot: Snapshot,
     cost_bps: float = engine.DEFAULT_COST_BPS,
     benchmark_ticker: str = "SPY",
+    kind: str = "search",
     allow_holdout: bool = False,
     note: str = "",
 ) -> RunReport:
@@ -86,6 +94,7 @@ def run_strategy(
             cost_bps=cost_bps,
             declared_n=strategy_cls.declared_n(),
             metrics=metrics,
+            kind=kind,
             used_holdout=allow_holdout,
             note=note,
         )
@@ -94,12 +103,12 @@ def run_strategy(
     # Deflate only after logging, so the correction accounts for the trials this
     # run just consumed. Sharpes span every strategy ever run, because the
     # multiple-testing problem is a property of the whole search.
-    all_sharpes = ledger.sharpes()
+    all_sharpes = ledger.sharpes(kind="search")
     for trial in trials:
         trial.deflated_sharpe = stats.deflated_sharpe_ratio(trial.result.returns, all_sharpes)
 
     events = stats.drawdown_events(benchmark.equity, threshold=-0.10)
-    best = max(trials, key=lambda t: t.metrics["max_drawdown"])
+    best = max(trials, key=lambda t: (t.metrics["max_drawdown"], t.metrics["cagr"]))
     attribution = stats.attribution(best.result.equity, benchmark.equity, events)
 
     return RunReport(
@@ -113,6 +122,7 @@ def run_strategy(
         benchmark=benchmark,
         benchmark_metrics=benchmark_metrics,
         trials=trials,
+        regret=stats.regret(best.result.equity, benchmark.equity),
         attribution=attribution,
     )
 
@@ -129,6 +139,7 @@ def start_date_sweep(
     A single start date is a hidden parameter. If the conclusion depends on
     beginning before 2008, the finding is "2008 happened", not "the rule works".
     """
+    kwargs.setdefault("kind", "robustness")  # re-runs of one rule, not a new search
     reports = []
     for start in start_dates:
         window = prices.loc[prices.index >= pd.Timestamp(start)]
@@ -136,3 +147,22 @@ def start_date_sweep(
             continue
         reports.append((start, run_strategy(strategy_cls, window, snapshot, **kwargs)))
     return reports
+
+
+def cost_sweep(
+    strategy_cls: type[Strategy],
+    prices: pd.DataFrame,
+    snapshot: Snapshot,
+    cost_options: tuple[float, ...] = (1.0, 5.0, 10.0, 20.0),
+    **kwargs: Any,
+) -> list[tuple[float, RunReport]]:
+    """Re-run across a range of slippage assumptions.
+
+    A result that dies at 20 bps on liquid ETFs was never real. Tagged as
+    robustness: this is one rule under different conditions, not a search.
+    """
+    kwargs.setdefault("kind", "robustness")
+    return [
+        (bps, run_strategy(strategy_cls, prices, snapshot, cost_bps=bps, **kwargs))
+        for bps in cost_options
+    ]

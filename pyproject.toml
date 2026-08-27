@@ -27,3 +27,6 @@ ignore = [
 # strategy contract, not accidental mutable defaults. Literal expected values are
 # the point of an assertion.
 "tests/*" = ["RUF012", "PLR2004"]
+# Strategy subclasses declare `fixed` and `fitted` as class-level data. That
+# declaration is the contract the harness enforces against, not an oversight.
+"strategies/*" = ["RUF012"]

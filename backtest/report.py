@@ -113,6 +113,33 @@ def plateau(rows: Sequence[dict[str, Any]]) -> str:
     return table(rows)
 
 
+def regret(bundle: dict[str, float]) -> str:
+    """How hard the rule would have been to keep following.
+
+    Returns are only earned by someone who does not quit, and this is the table
+    that says how much quitting-pressure the rule generates.
+    """
+    days = int(bundle["longest_underperformance_days"])
+    rows = [
+        {
+            "measure": "worst shortfall vs buy & hold",
+            "value": pct(bundle["relative_drawdown"]),
+            "meaning": "deepest cumulative fall behind",
+        },
+        {
+            "measure": "worst 1-year shortfall",
+            "value": pct(bundle["worst_1y_shortfall"]),
+            "meaning": "bad year relative to holding SPY",
+        },
+        {
+            "measure": "longest stretch behind",
+            "value": f"{days} days (~{days / 252:.1f}y)",
+            "meaning": "how long you would have to endure it",
+        },
+    ]
+    return table(rows, ["measure", "value", "meaning"])
+
+
 def attribution(frame: pd.DataFrame) -> str:
     """Per-event protection. Exposes an edge that is really one event in disguise."""
     if frame.empty:
