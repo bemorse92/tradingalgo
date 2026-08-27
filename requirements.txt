@@ -1,0 +1,10 @@
+pandas
+numpy
+scipy
+yfinance
+pyarrow
+
+# Dev / test only.
+pytest
+ruff
+ffn  # statistics oracle: cross-checks backtest/stats.py in the test suite

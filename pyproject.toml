@@ -1,0 +1,29 @@
+[project]
+name = "tradingalgo"
+version = "0.1.0"
+description = "Strategy research bench: can a deterministic rule reduce drawdown vs buy-and-hold SPY?"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# Pinned explicitly so linting is reproducible across ruff versions.
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "PL", "DTZ"]
+ignore = [
+    # Wide keyword APIs are deliberate here: log_trial and run_strategy take many
+    # named arguments precisely so call sites are self-documenting.
+    "PLR0913",
+    "PLR0917",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test fixtures declare strategies inline; the class-level parameter dicts are the
+# strategy contract, not accidental mutable defaults. Literal expected values are
+# the point of an assertion.
+"tests/*" = ["RUF012", "PLR2004"]

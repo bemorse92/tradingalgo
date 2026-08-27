@@ -35,3 +35,8 @@ logs/
 .idea/
 .vscode/
 *.swp
+
+# The trial ledger and snapshot registry are the audit trail - they must be committed
+# even though *.csv is ignored above.
+!results/trials.csv
+!data/snapshots.json
