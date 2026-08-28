@@ -14,7 +14,7 @@ import importlib
 import inspect
 import sys
 
-from . import data, engine, ledger, report, runner, stats, validate
+from . import benchmarks, data, engine, ledger, report, runner, stats, validate
 from .runner import RunReport, run_strategy
 from .strategy import Strategy
 
@@ -45,6 +45,31 @@ def _load_strategy(name: str) -> type[Strategy]:
     return candidates[0]
 
 
+def _benchmark_note(graded: benchmarks.Benchmark) -> str:
+    """Why the marked row is the one that counts.
+
+    Spelled out on every run because the slate is easy to read as seven equal
+    comparisons, when in fact six are diagnostic and one can produce a FAIL.
+    """
+    lines = [
+        "",
+        "  Buy & hold alone flatters any rule that simply holds less equity. The",
+        "  matched rows hold the same risk with no signal, no timing and no",
+        "  discipline: losing to one of those means the rule contributed nothing.",
+        f"  This strategy declared {graded.name!r} in its pre-registration, so that",
+        "  is the row its criteria were graded on. The others are diagnostic.",
+    ]
+    if graded.key in benchmarks.MATCHED_KEYS:
+        lines += [
+            "",
+            "  Note: a matched benchmark is built from the strategy's own realised",
+            "  behaviour, so the declaration pre-commits the method, not a fixed",
+            "  portfolio. Weaker than naming 60/40 outright, but still fixed before",
+            "  the run and not selectable afterwards.",
+        ]
+    return "\n".join(lines)
+
+
 def _print_report(rep: RunReport) -> None:
     print(report.section(f"{rep.strategy_name}"))
     print(
@@ -60,23 +85,24 @@ def _print_report(rep: RunReport) -> None:
 
     best = rep.best_by_drawdown
 
-    print(report.section("Pre-registered criteria"))
-    print(report.criteria(rep.criteria, rep.verdict))
+    graded = rep.graded_benchmark
 
-    print(report.section("Best by drawdown vs buy & hold"))
-    print(report.comparison(best.metrics, rep.benchmark_metrics, rep.strategy_name))
+    print(report.section("Pre-registered criteria"))
+    print(report.criteria(rep.criteria, rep.verdict, graded.name))
+
+    print(report.section(f"Best by drawdown vs {graded.name}"))
+    print(
+        report.comparison(
+            best.metrics, rep.benchmark_metrics, rep.strategy_name, graded.name
+        )
+    )
     if best.params:
         shown = ", ".join(f"{k}={v}" for k, v in sorted(best.params.items()))
         print(f"\n  at {shown}")
 
     print(report.section("Against benchmarks that need no signal"))
-    print(report.benchmarks(rep.benchmarks, best.metrics, rep.strategy_name))
-    print(
-        "\n  Buy & hold alone flatters any rule that simply holds less equity. The\n"
-        "  matched rows hold the same risk with no signal, no timing and no\n"
-        "  discipline: losing to one of those means the rule contributed nothing.\n"
-        "  Diagnostic only -- the graded criteria above are the pre-registered ones."
-    )
+    print(report.benchmarks(rep.benchmarks, best.metrics, rep.strategy_name, graded.key))
+    print(_benchmark_note(graded))
 
     print(report.section("Parameter plateau"))
     rows = []
@@ -106,7 +132,7 @@ def _print_report(rep: RunReport) -> None:
     )
 
     print(report.section("Followability (whipsaw / regret)"))
-    print(report.regret(rep.regret))
+    print(report.regret(rep.regret, graded.name))
     print(
         "\n  A rule only pays if it is followed through the stretches where it looks\n"
         "  stupid. This is what killed the commercial tactical funds."
@@ -212,7 +238,9 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("strategy", help="module name under strategies/")
     run.add_argument("--snapshot", default=None, help="snapshot id (default: latest)")
     run.add_argument("--cost-bps", type=float, default=engine.DEFAULT_COST_BPS)
-    run.add_argument("--benchmark", default="SPY")
+    # Which *ticker* plays the risk asset, not which benchmark grades the run --
+    # that is declared on the strategy and cannot be chosen at the command line.
+    run.add_argument("--risk-asset", default="SPY")
     run.add_argument("--note", default="")
     run.add_argument(
         "--kind",
@@ -281,7 +309,7 @@ def main(argv: list[str] | None = None) -> int:
         prices,
         snapshot,
         cost_bps=args.cost_bps,
-        benchmark_ticker=args.benchmark,
+        risk_asset=args.risk_asset,
         kind=args.kind,
         allow_holdout=args.allow_holdout,
         force_holdout=args.force_holdout,

@@ -9,7 +9,13 @@ Declaring them this way is what lets the harness enforce the budget, price the
 search space into the deflated Sharpe, log every trial, and report parameter
 plateaus, without the researcher having to remember to do any of it.
 
-See design_docs/research_guardrails.md, Tier 1 item 3.
+The same reasoning applies to the benchmark: which signal-free alternative a
+strategy must beat is part of the hypothesis. Declared as data, it is checked
+before the run and graded mechanically, so it cannot be selected afterwards from
+whichever comparison the result happens to win.
+
+See design_docs/research_guardrails.md, Tier 1 item 3, and
+design_docs/path_to_trading.md H4.
 """
 
 from __future__ import annotations
@@ -21,6 +27,7 @@ from typing import Any, ClassVar
 
 import pandas as pd
 
+from . import benchmarks
 from .criteria import Criterion
 
 #: Hard cap on parameters chosen by looking at results.
@@ -36,11 +43,12 @@ class Strategy(ABC):
 
     Subclasses declare::
 
-        name     = "sma_trend"
+        name      = "sma_trend"
         rationale = "Volatility clusters; large drawdowns are slow grinds, not gaps."
-        fixed    = {"rebalance": "month_end"}       # a priori, never swept
-        fitted   = {"lookback": [150, 200, 250]}    # searched -- max 2 keys
-        criteria = (Criterion("drawdown cut", "max_drawdown_vs_benchmark", 0.10),)
+        benchmark = benchmarks.VOL_MATCHED          # the bar, declared in advance
+        fixed     = {"rebalance": "month_end"}      # a priori, never swept
+        fitted    = {"lookback": [150, 200, 250]}   # searched -- max 2 keys
+        criteria  = (Criterion("drawdown cut", "max_drawdown_vs_benchmark", 0.10),)
 
     and implement `weights()`. Do not lag inside `weights()`; the engine owns the
     only shift in the project.
@@ -48,6 +56,10 @@ class Strategy(ABC):
 
     name: ClassVar[str] = ""
     rationale: ClassVar[str] = ""
+    #: Which signal-free alternative this strategy's criteria are graded against.
+    #: No default: buy-and-hold flatters any rule that simply holds less equity,
+    #: so inheriting it silently is the failure this field exists to prevent.
+    benchmark: ClassVar[str] = ""
     fixed: ClassVar[Mapping[str, Any]] = {}
     fitted: ClassVar[Mapping[str, Sequence[Any]]] = {}
     criteria: ClassVar[Sequence[Criterion]] = ()
@@ -65,6 +77,14 @@ class Strategy(ABC):
                 f"{cls.__qualname__} must declare a `rationale`: an ex-ante economic "
                 "foundation, stated before searching. This is protocol item #1 "
                 "(Arnott, Harvey & Markowitz)."
+            )
+        if cls.benchmark not in benchmarks.KEYS:
+            raise StrategyDeclarationError(
+                f"{cls.__qualname__} must declare a `benchmark` from "
+                f"{sorted(benchmarks.KEYS)}; got {cls.benchmark!r}. Which alternative "
+                "a strategy has to beat is part of the hypothesis, not something to "
+                "pick afterwards from whichever comparison it happens to win. "
+                "Buy-and-hold is a legitimate choice, but it has to be a choice."
             )
         if not cls.criteria:
             raise StrategyDeclarationError(

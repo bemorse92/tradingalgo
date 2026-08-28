@@ -14,14 +14,6 @@ import pytest
 from backtest import benchmarks, engine, stats
 
 
-@pytest.fixture
-def basket(prices) -> pd.DataFrame:
-    """The two-ticker fixture plus a near-riskless cash sleeve."""
-    frame = prices.copy()
-    frame["BIL"] = 100.0 * np.exp(np.arange(len(frame)) * 0.00008)  # ~2%/yr, no vol
-    return frame
-
-
 def test_static_mix_pays_the_same_entry_cost_as_buy_and_hold(prices):
     """No asymmetry: a 100% SPY static mix is buy & hold, cost for cost."""
     mix = benchmarks.static(prices, {"SPY": 1.0}, cost_bps=10.0)
@@ -83,8 +75,8 @@ def test_matched_benchmark_neutralises_a_pure_de_risking_rule(basket):
     result = engine.run(basket, weights, cost_bps=0.0)
 
     slate = benchmarks.build(basket, result, cost_bps=0.0)
-    matched = next(b for b in slate if b.name.startswith("exposure-matched"))
-    hold = next(b for b in slate if b.name.startswith("buy & hold"))
+    matched = benchmarks.resolve(slate, benchmarks.EXPOSURE_MATCHED)
+    hold = benchmarks.resolve(slate, benchmarks.BUY_AND_HOLD)
 
     strategy_dd = stats.max_drawdown(result.equity)
     assert abs(strategy_dd - matched.metrics["max_drawdown"]) < abs(
@@ -114,3 +106,49 @@ def test_inverse_volatility_weights_are_valid_and_favour_the_calm_asset(basket):
     settled = result.held.iloc[benchmarks.INVERSE_VOL_LOOKBACK + 25 :]
     assert settled["TLT"].mean() > settled["SPY"].mean()  # TLT is the calmer series
     assert settled["BIL"].max() == pytest.approx(0.0)  # cash only holds the warmup
+
+
+def test_available_keys_agrees_with_what_build_produces(basket, prices):
+    """Pre-flight and the real build must never disagree.
+
+    `require` checks a declared benchmark before the sweep runs; if it said yes
+    where `build` then omits the row, a run would log trials and die afterwards.
+    """
+    for frame in (basket, prices):
+        result = engine.buy_and_hold(frame, ticker="SPY", cost_bps=0.0)
+        built = [b.key for b in benchmarks.build(frame, result, cost_bps=0.0)]
+        assert sorted(built) == sorted(benchmarks.available_keys(frame))
+
+
+def test_resolve_picks_the_declared_benchmark_by_key(basket):
+    """Keys are stable; display names carry weights only known after the run."""
+    result = engine.buy_and_hold(basket, ticker="SPY", cost_bps=0.0)
+    slate = benchmarks.build(basket, result, cost_bps=0.0)
+
+    matched = benchmarks.resolve(slate, benchmarks.VOL_MATCHED)
+    assert matched.key == benchmarks.VOL_MATCHED
+    assert matched.name.startswith("vol-matched")
+
+
+def test_unbuildable_benchmark_is_refused_not_substituted(prices):
+    """No cash sleeve -> no matched mix. Falling back would re-grade silently."""
+    with pytest.raises(benchmarks.BenchmarkUnavailableError, match="cannot be built"):
+        benchmarks.require(prices, benchmarks.VOL_MATCHED)
+
+
+def test_unknown_benchmark_key_is_refused(basket):
+    with pytest.raises(benchmarks.BenchmarkUnavailableError, match="Unknown benchmark"):
+        benchmarks.require(basket, "vol-matched")
+
+
+def test_every_declarable_key_is_actually_buildable(basket):
+    """The declared vocabulary and the built slate are the same set.
+
+    A key a strategy may declare but the harness never builds would fail only at
+    run time, on a snapshot that has every ticker.
+    """
+    result = engine.buy_and_hold(basket, ticker="SPY", cost_bps=0.0)
+    full = basket.copy()
+    full["GLD"] = 100.0  # a second risky sleeve, so the basket rows appear
+    built = {b.key for b in benchmarks.build(full, result, cost_bps=0.0)}
+    assert built == set(benchmarks.KEYS)

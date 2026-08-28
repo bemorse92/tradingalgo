@@ -81,39 +81,51 @@ def provenance(
     return "\n".join(lines)
 
 
-def comparison(strategy: dict[str, float], benchmark: dict[str, float], label: str) -> str:
-    """Strategy against buy-and-hold, side by side."""
+def comparison(
+    strategy: dict[str, float],
+    benchmark: dict[str, float],
+    label: str,
+    benchmark_label: str,
+) -> str:
+    """Strategy against its declared benchmark, side by side.
+
+    The benchmark column is named rather than assumed: a comparison whose other
+    side is unlabelled invites reading it as buy-and-hold whatever it actually is.
+    """
     rows = [
         {
             "metric": "CAGR",
             label: pct(strategy["cagr"]),
-            "buy & hold": pct(benchmark["cagr"]),
+            benchmark_label: pct(benchmark["cagr"]),
         },
         {
             "metric": "max drawdown",
             label: pct(strategy["max_drawdown"]),
-            "buy & hold": pct(benchmark["max_drawdown"]),
+            benchmark_label: pct(benchmark["max_drawdown"]),
         },
         {
             "metric": "volatility",
             label: pct(strategy["volatility"]),
-            "buy & hold": pct(benchmark["volatility"]),
+            benchmark_label: pct(benchmark["volatility"]),
         },
         {
             "metric": "Sharpe",
             label: f"{strategy['sharpe']:.3f}",
-            "buy & hold": f"{benchmark['sharpe']:.3f}",
+            benchmark_label: f"{benchmark['sharpe']:.3f}",
         },
     ]
-    return table(rows, ["metric", label, "buy & hold"])
+    return table(rows, ["metric", label, benchmark_label])
 
 
-def benchmarks(slate, strategy: dict[str, float], label: str) -> str:
+def benchmarks(slate, strategy: dict[str, float], label: str, graded_key: str = "") -> str:
     """The strategy against every alternative that needs no signal to follow.
 
     The exposure-matched rows are the ones that decide whether the rule did
     anything: if a static mix at the same risk matches it, the result is
     "held less stock", not "timed the market".
+
+    The declared benchmark is marked, so the row that can produce a FAIL is never
+    just one line among several equally weighted comparisons.
     """
     if not slate:
         return "  (no benchmarks available in this snapshot)"
@@ -130,7 +142,7 @@ def benchmarks(slate, strategy: dict[str, float], label: str) -> str:
     ]
     rows += [
         {
-            "benchmark": b.name,
+            "benchmark": f"{b.name} *" if b.key == graded_key else b.name,
             "cagr": pct(b.metrics["cagr"]),
             "max dd": pct(b.metrics["max_drawdown"]),
             "vol": pct(b.metrics["volatility"]),
@@ -141,6 +153,8 @@ def benchmarks(slate, strategy: dict[str, float], label: str) -> str:
         for b in slate
     ]
     legend = "\n".join(f"  {b.name:<34} {b.meaning}" for b in slate)
+    if graded_key:
+        legend += "\n\n  * declared in the pre-registration: the criteria are graded here."
     return table(rows) + "\n\n" + legend
 
 
@@ -154,23 +168,25 @@ def plateau(rows: Sequence[dict[str, Any]]) -> str:
     return table(rows)
 
 
-def regret(bundle: dict[str, float]) -> str:
+def regret(bundle: dict[str, float], benchmark_label: str) -> str:
     """How hard the rule would have been to keep following.
 
     Returns are only earned by someone who does not quit, and this is the table
-    that says how much quitting-pressure the rule generates.
+    that says how much quitting-pressure the rule generates. Measured against
+    the declared benchmark, since that is what the researcher would be comparing
+    to while deciding whether to abandon it.
     """
     days = int(bundle["longest_underperformance_days"])
     rows = [
         {
-            "measure": "worst shortfall vs buy & hold",
+            "measure": "worst shortfall vs benchmark",
             "value": pct(bundle["relative_drawdown"]),
             "meaning": "deepest cumulative fall behind",
         },
         {
             "measure": "worst 1-year shortfall",
             "value": pct(bundle["worst_1y_shortfall"]),
-            "meaning": "bad year relative to holding SPY",
+            "meaning": f"bad year relative to {benchmark_label}",
         },
         {
             "measure": "longest stretch behind",
@@ -199,8 +215,12 @@ def attribution(frame: pd.DataFrame) -> str:
     return table(rows)
 
 
-def criteria(results, verdict_label: str) -> str:
-    """Pre-registered criteria, graded by the harness rather than by eye."""
+def criteria(results, verdict_label: str, benchmark_label: str = "") -> str:
+    """Pre-registered criteria, graded by the harness rather than by eye.
+
+    The benchmark is printed with the verdict because a PASS means nothing
+    without the bar it cleared.
+    """
     if not results:
         return "  (no criteria declared -- this result can neither pass nor fail)"
     rows = [
@@ -213,6 +233,8 @@ def criteria(results, verdict_label: str) -> str:
         for r in results
     ]
     banner = f"\n  VERDICT: {verdict_label}"
+    if benchmark_label:
+        banner += f"\n  graded against: {benchmark_label} (declared before the run)"
     return table(rows, ["criterion", "test", "actual", "result"]) + "\n" + banner
 
 

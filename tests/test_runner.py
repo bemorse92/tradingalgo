@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from backtest import ledger, runner, validate
+from backtest import benchmarks, ledger, runner, validate
 from backtest.data import Snapshot
-from tests.conftest import HonestTrend, PeekingTrend
+from tests.conftest import HonestTrend, MatchedTrend, PeekingTrend
 
 SNAPSHOT = Snapshot(
     id="test-snapshot",
@@ -99,3 +99,42 @@ def test_best_by_drawdown_breaks_ties_deterministically(sandbox, prices):
     report.trials[2].metrics["cagr"] = 0.05
 
     assert report.best_by_drawdown is report.trials[1]
+
+
+def test_criteria_are_graded_against_the_declared_benchmark(sandbox, basket):
+    """H4, as a test: the declared bar decides the numbers, not a hardcoded one.
+
+    Same rule, same data, same criteria -- only the declared benchmark differs.
+    If the two runs graded identically, the declaration would be decoration.
+    """
+    plain = runner.run_strategy(HonestTrend, basket, SNAPSHOT)
+    matched = runner.run_strategy(MatchedTrend, basket, SNAPSHOT)
+
+    assert plain.graded_benchmark.key == benchmarks.BUY_AND_HOLD
+    assert matched.graded_benchmark.key == benchmarks.VOL_MATCHED
+    assert plain.criteria[0].value != pytest.approx(matched.criteria[0].value)
+
+    # And the matched mix is the harder bar: carrying the same risk with no
+    # signal, it leaves far less drawdown for the rule to claim credit for.
+    assert matched.criteria[0].value < plain.criteria[0].value
+
+
+def test_regret_is_measured_against_the_declared_benchmark(sandbox, basket):
+    """Followability is judged against whatever the researcher would compare to."""
+    plain = runner.run_strategy(HonestTrend, basket, SNAPSHOT)
+    matched = runner.run_strategy(MatchedTrend, basket, SNAPSHOT)
+
+    assert plain.regret["relative_drawdown"] != pytest.approx(
+        matched.regret["relative_drawdown"]
+    )
+
+
+def test_unbuildable_declared_benchmark_blocks_the_run_before_logging(sandbox, prices):
+    """The `prices` fixture has no cash sleeve, so the vol-matched mix is impossible.
+
+    The refusal has to come before the sweep: a run that dies afterwards has
+    already spent ledger entries against a bar that does not exist.
+    """
+    with pytest.raises(benchmarks.BenchmarkUnavailableError):
+        runner.run_strategy(MatchedTrend, prices, SNAPSHOT)
+    assert ledger.trial_count() == 0

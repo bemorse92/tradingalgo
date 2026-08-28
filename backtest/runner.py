@@ -42,13 +42,14 @@ class RunReport:
     declared_n: int
     trials_total: int
     used_holdout: bool
-    benchmark: engine.Result
-    benchmark_metrics: dict[str, float]
-    #: The wider slate (exposure-matched, 60/40, cash, ...). Diagnostic only: the
-    #: criteria above are graded against `benchmark`, because these strategies
-    #: pre-registered against buy-and-hold and re-grading after the fact is the
-    #: failure mode the harness exists to prevent. Declaring a benchmark as part
-    #: of the pre-registration is path_to_trading.md H4.
+    #: The benchmark the strategy declared, resolved out of the slate below. Every
+    #: `_vs_benchmark` criterion, the per-event attribution and the regret bundle
+    #: are all measured against this one -- and it was named in the strategy's
+    #: pre-registration, before any of these numbers existed.
+    graded_benchmark: benchmarks_mod.Benchmark
+    #: The full slate (buy & hold, exposure-matched, 60/40, cash, ...). The rest
+    #: are diagnostic: they say what else the rule could have lost to, but only
+    #: the declared one can produce a FAIL.
     benchmarks: list[benchmarks_mod.Benchmark] = field(default_factory=list)
     trials: list[TrialResult] = field(default_factory=list)
     attribution: pd.DataFrame = field(default_factory=pd.DataFrame)
@@ -61,13 +62,21 @@ class RunReport:
         return criteria_mod.verdict(self.criteria)
 
     @property
+    def benchmark(self) -> engine.Result:
+        return self.graded_benchmark.result
+
+    @property
+    def benchmark_metrics(self) -> dict[str, float]:
+        return self.graded_benchmark.metrics
+
+    @property
     def vol_matched(self) -> benchmarks_mod.Benchmark | None:
         """The static mix carrying the same risk with no signal.
 
         Section H's claim is that this, not buy-and-hold, is the bar that decides
         whether the rule contributed anything.
         """
-        return next((b for b in self.benchmarks if b.name.startswith("vol-matched")), None)
+        return next((b for b in self.benchmarks if b.key == benchmarks_mod.VOL_MATCHED), None)
 
     @property
     def best_by_drawdown(self) -> TrialResult:
@@ -86,7 +95,7 @@ def run_strategy(
     prices: pd.DataFrame,
     snapshot: Snapshot,
     cost_bps: float = engine.DEFAULT_COST_BPS,
-    benchmark_ticker: str = "SPY",
+    risk_asset: str = "SPY",
     kind: str = "search",
     allow_holdout: bool = False,
     force_holdout: bool = False,
@@ -100,9 +109,9 @@ def run_strategy(
     usable = validate.prepare(
         probe, prices, allow_holdout=allow_holdout, force_holdout=force_holdout
     )
-
-    benchmark = engine.buy_and_hold(usable, ticker=benchmark_ticker, cost_bps=cost_bps)
-    benchmark_metrics = stats.summarise(benchmark.equity, benchmark.returns)
+    # The declared benchmark is checked here rather than after the sweep: a run
+    # that discovers its own bar is unbuildable has already spent ledger entries.
+    benchmarks_mod.require(usable, strategy_cls.benchmark, risk_asset=risk_asset)
 
     trials: list[TrialResult] = []
     for params in strategy_cls.grid():
@@ -133,9 +142,16 @@ def run_strategy(
     for trial in trials:
         trial.deflated_sharpe = stats.deflated_sharpe_ratio(trial.result.returns, all_sharpes)
 
-    events = stats.drawdown_events(benchmark.equity, threshold=-0.10)
     best = max(trials, key=lambda t: (t.metrics["max_drawdown"], t.metrics["cagr"]))
-    attribution = stats.attribution(best.result.equity, benchmark.equity, events)
+
+    # The slate is built after the sweep because two of its members are matched to
+    # the strategy's own realised risk and exposure. The declared benchmark is then
+    # picked out of it by key -- never chosen by looking at which one it beats.
+    slate = benchmarks_mod.build(usable, best.result, cost_bps=cost_bps, risk_asset=risk_asset)
+    graded = benchmarks_mod.resolve(slate, strategy_cls.benchmark)
+
+    events = stats.drawdown_events(graded.result.equity, threshold=-0.10)
+    attribution = stats.attribution(best.result.equity, graded.result.equity, events)
 
     return RunReport(
         strategy_name=strategy_cls.name,
@@ -145,16 +161,13 @@ def run_strategy(
         declared_n=strategy_cls.declared_n(),
         trials_total=ledger.trial_count(),
         used_holdout=allow_holdout,
-        benchmark=benchmark,
-        benchmark_metrics=benchmark_metrics,
-        benchmarks=benchmarks_mod.build(
-            usable, best.result, cost_bps=cost_bps, risk_asset=benchmark_ticker
-        ),
+        graded_benchmark=graded,
+        benchmarks=slate,
         trials=trials,
-        regret=stats.regret(best.result.equity, benchmark.equity),
+        regret=stats.regret(best.result.equity, graded.result.equity),
         attribution=attribution,
         criteria=criteria_mod.evaluate(
-            strategy_cls.criteria, trials, best, benchmark_metrics, attribution
+            strategy_cls.criteria, trials, best, graded.metrics, attribution
         ),
     )
 

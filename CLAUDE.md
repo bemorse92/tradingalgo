@@ -31,11 +31,12 @@ statistics oracle in tests. No broker/execution API — trades are placed manual
   (weights → equity curve; owns the single `.shift(1)` and the cost model), `stats`
   (CAGR/drawdown/Sharpe/DSR/PSR, per-event attribution), `benchmarks` (the signal-free
   alternatives a strategy must beat, including exposure- and volatility-matched static
-  mixes), `ledger` (append-only trial log),
+  mixes; the strategy declares which one grades it), `ledger` (append-only trial log),
   `validate` (future-corruption test, parameter budget, prereg presence, holdout gate),
   `report`, `cli`.
-- `strategies/` — one `Strategy` subclass per strategy, each declaring `rationale`, `fixed`,
-  and `fitted` params, paired with a `.prereg.md` committed *before* results exist. The
+- `strategies/` — one `Strategy` subclass per strategy, each declaring `rationale`,
+  `benchmark`, `fixed` and `fitted` params, paired with a `.prereg.md` committed *before*
+  results exist. The
   schema is what enforces the guardrails; see
   [research_guardrails.md](design_docs/research_guardrails.md).
 - Strategies return target weights. The engine — not the strategy — applies the lag, so

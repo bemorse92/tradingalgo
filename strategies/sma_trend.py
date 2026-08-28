@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from backtest import benchmarks
 from backtest.criteria import Criterion
 from backtest.strategy import Strategy
 from backtest.util import above_moving_average, one_hot, rebalance
@@ -19,6 +20,11 @@ class SmaTrend(Strategy):
         "instantaneous gaps, so price below a long trailing average has historically "
         "been more likely to keep falling. Serial dependence, not a searched pattern."
     )
+    # Transcribed from the pre-registration, which named buy & hold. The
+    # exposure-matched mix is the harder and better bar (path_to_trading.md H1),
+    # but it did not exist when this was declared, and adopting it now would be
+    # re-grading a committed result against a bar chosen after the fact.
+    benchmark = benchmarks.BUY_AND_HOLD
     fixed = {"defensive": "BIL", "rebalance": "month_end"}
     fitted = {"lookback": [150, 200, 250]}
     # Transcribed verbatim from the pre-registration; the harness grades these,

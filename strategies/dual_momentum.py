@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from backtest import benchmarks
 from backtest.criteria import Criterion
 from backtest.strategy import Strategy
 from backtest.util import one_hot, rebalance, trailing_return
@@ -19,6 +20,9 @@ class DualMomentum(Strategy):
         "been more likely to continue than reverse over intermediate horizons. Compares "
         "SPY against cash over time rather than against a smoothing of its own price."
     )
+    # As declared in the pre-registration: buy & hold. Recorded as it was, not
+    # upgraded to the matched mix that H1 later showed to be the harder bar.
+    benchmark = benchmarks.BUY_AND_HOLD
     fixed = {"defensive": "BIL", "rebalance": "month_end"}
     fitted = {"lookback": [126, 189, 252]}
     # Transcribed verbatim from the pre-registration; the harness grades these,

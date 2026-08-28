@@ -47,7 +47,8 @@ Choosing among results is `search` whatever it is called.
 - `backtest/` — the harness. `data` (fetch/cache/pin), `engine` (weights → equity curve;
   owns the only lag in the project), `stats` (performance plus deflated/probabilistic
   Sharpe), `benchmarks` (the signal-free portfolios a strategy has to beat, including
-  static mixes matched to its own volatility and equity exposure), `criteria`
+  static mixes matched to its own volatility and equity exposure; which one grades a
+  strategy is declared on it in advance), `criteria`
   (pre-registered bars, graded mechanically), `ledger` (append-only trial log),
   `validate` (look-ahead detection, pre-registration gate, holdout gate), `runner`,
   `report`, `cli`.
@@ -63,8 +64,11 @@ Choosing among results is `search` whatever it is called.
 Three things the harness enforces mechanically, because the research says intentions
 don't hold (see [design_docs/research_guardrails.md](design_docs/research_guardrails.md)):
 
-1. **No result without a pre-registration.** Rationale, rule, parameters, sample, and
-   success criteria are committed before the first backtest runs.
+1. **No result without a pre-registration.** Rationale, rule, parameters, benchmark,
+   sample, and success criteria are committed before the first backtest runs. Which
+   signal-free alternative a strategy must beat is part of the hypothesis: buy & hold
+   flatters any rule that simply holds less equity, so it has to be a choice rather
+   than a default.
 2. **Every trial is logged.** A Sharpe found on the 4th configuration is a finding; the
    same number on the 400th is noise, and only the ledger knows which you have.
 3. **Strategies must prove they cannot see the future.** Prices after a cut date are

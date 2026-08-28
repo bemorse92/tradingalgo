@@ -121,7 +121,8 @@ Search Sharpes to date: 0.805, 0.745, 0.705 (`sma_trend`); 0.542, 0.477, 0.614
 1. Do not consume the holdout yet.
 2. If continuing: write a third pre-registration with a repaired criterion set —
    post-2008 subsample must pass independently, and the result must survive dropping
-   its largest contributing drawdown event.
+   its largest contributing drawdown event. *(Since H4, such a pre-registration must
+   also name the benchmark it is graded against; see the second addendum below.)*
 3. Consider that the honest answer may already be visible. Drawdown protection is
    real and persistent (~13pp post-2008); it costs 3–5 points of annual return.
    *(Both halves of this sentence are revised by the benchmark addendum below:
@@ -269,6 +270,58 @@ is owed to this strategy.
 ### Ledger state
 
 141 trials, 15 of them `search`. Holdout: **unconsumed.**
+
+---
+
+## Addendum: the benchmark is now a declared choice
+
+*Added 2026-08-28. Implements [path_to_trading.md](path_to_trading.md) H4.*
+
+The addendum above ends by saying the next pre-registration should declare its
+benchmark. It now must.
+
+`Strategy` carries a `benchmark` field with no default, validated at import
+against a fixed vocabulary (`buy_and_hold`, `vol_matched`, `exposure_matched`,
+`sixty_forty`, `equal_weight`, `inverse_vol`, `cash`). A strategy that does not
+name its bar does not import. The declared benchmark is checked before the sweep
+logs a trial, and then resolves every `*_vs_benchmark` criterion, the per-event
+attribution and the regret bundle. The report prints it beside the verdict.
+
+**Nothing above is re-graded, and nothing above moved.** Both strategies are
+recorded as declaring `buy_and_hold`, which is what their pre-registrations
+actually said. Re-run through the new machinery they reproduce exactly:
+
+| Criterion | sma_trend | dual_momentum |
+|---|---|---|
+| drawdown cut ≥ 0.10 | 0.3436 PASS | 0.2147 PASS |
+| CAGR within −0.02 | 0.0017 PASS | 0.0021 PASS |
+| protected in ≥ 3 events | 3 PASS | **2 FAIL** |
+| plateau (every trial) | 0.3309 PASS | 0.2147 PASS |
+| **Verdict** | **PASS** | **FAIL** |
+
+Identical to the machine-graded table earlier in this document. That is the
+result worth recording: the mechanism changed and no committed number did.
+
+**What it changes is prospective.** The matched mix stops being a table nobody
+has to answer to. A future strategy can declare `vol_matched` and then *fail*
+against a portfolio that needs no signal, no timing and no discipline — which,
+on the evidence of the previous addendum, is a bar neither existing strategy
+would clear post-2008.
+
+One honest limitation, stated here rather than discovered later: the two matched
+mixes are constructed from the strategy's own realised volatility and exposure,
+so declaring one pre-commits the *method*, not a fixed portfolio. It is fixed in
+advance and cannot be swapped afterwards, but it is a weaker commitment than
+naming `sixty_forty` outright. The report says so on any run that uses one.
+
+### Ledger state
+
+147 trials, 15 of them `search`. Holdout: **unconsumed.**
+
+The six new trials are the two strategies re-run to confirm the verdicts above,
+logged as `robustness`: re-runs of already-declared configurations under new
+reporting, which is what that tag means. No search budget was spent, and the
+deflation is unchanged.
 
 (The `search` count is 15 rather than the 6 recorded earlier in this document: a
 re-run of both strategies on 2026-08-28T00:08 was logged as `search`, before the

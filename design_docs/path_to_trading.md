@@ -38,7 +38,9 @@ Since 2026-08-28 it also compares every strategy against a slate of portfolios t
 need no signal to follow — including static mixes matched to the strategy's own
 realised volatility and equity exposure (H1, H3). That comparison did not overturn
 the existing findings but it shrank them substantially on both sides, and it is
-what a result now has to survive to mean anything.
+what a result now has to survive to mean anything. Since H4, which of those
+comparisons grades a strategy is declared on the strategy itself and checked before
+the run, so the harder bar is binding rather than merely printed.
 
 **None of it produces an instruction.** The framework can currently tell you what
 *would have* happened. It has no concept of today, of what Ben holds, or of a trade.
@@ -347,14 +349,41 @@ selected afterwards from whichever it happens to beat.
 *Done when:* benchmark selection is declared data on the strategy, graded like any
 other criterion.
 
-**Now the live piece of section H.** H1 built the matched benchmark but deliberately
-left it *reported, not graded*: `sma_trend` and `dual_momentum` pre-registered
-against buy-and-hold, and binding them to a harder bar after seeing the numbers is
-the move the harness exists to prevent. So the matched mix is currently a table
-nobody has to answer to. H4 closes that — `Criterion` needs to resolve against a
-*declared* benchmark rather than assuming buy-and-hold, and the strategy schema
-needs a `benchmark` field the validator insists on. Cheap, and it is what makes
-every future H1 comparison binding.
+**Built 2026-08-28.** H1 built the matched benchmark but deliberately left it
+*reported, not graded*: `sma_trend` and `dual_momentum` pre-registered against
+buy-and-hold, and binding them to a harder bar after seeing the numbers is the move
+the harness exists to prevent. So the matched mix was a table nobody had to answer
+to. It no longer is.
+
+`Strategy` now carries a `benchmark` field, validated at import against a fixed
+vocabulary of keys (`buy_and_hold`, `vol_matched`, `exposure_matched`,
+`sixty_forty`, `equal_weight`, `inverse_vol`, `cash`). There is **no default** — a
+strategy that does not name its bar does not import, because inheriting
+buy-and-hold silently is the exact failure this closes. The declared benchmark is
+checked in pre-flight, before the sweep logs a single trial, and then drives every
+`*_vs_benchmark` criterion, the per-event attribution and the regret bundle. The
+report names it beside the verdict and marks its row in the slate.
+
+*Keys, not display names, and the distinction is load-bearing.* The two matched
+mixes are built from the strategy's own realised volatility and exposure, so their
+composition ("vol-matched 60%/40% SPY/BIL") is not knowable until the run is over.
+Declaring one therefore pre-commits the *method of construction*, not a fixed
+portfolio. That is still a real commitment — fixed in advance, not selectable from
+the slate afterwards — but a weaker one than naming `sixty_forty` outright, and the
+report says so on every run that uses one.
+
+**Both existing strategies were recorded as declaring `buy_and_hold`**, which is
+what their pre-registrations actually said. Their verdicts re-ran identically under
+the new machinery — `sma_trend` PASS at 0.3436 / 0.0017 / 3 / 0.3309,
+`dual_momentum` FAIL at 0.2147 / 0.0021 / **2** / 0.2147 — matching
+[findings.md](findings.md#addendum-machine-graded-verdicts) exactly. Upgrading them
+to the matched bar now would be re-grading a committed result against a bar chosen
+after the fact, which is the thing this field exists to prevent. The harder bar
+applies to the next pre-registration, which is where it belongs.
+
+The pre-registration template now carries a **Benchmark** section with the
+vocabulary, the evidence for why buy-and-hold is the easy answer, and a blank to
+fill in.
 
 ---
 
@@ -440,11 +469,18 @@ mostly artifacts of comparing a ~60%-equity portfolio to a 100%-equity one.
 finding worth chasing: signal-free equal-weight and inverse-volatility baskets beat
 `sma_trend` on Sharpe, which points at allocation rather than timing.
 
-**What remains in H, in order:** **H4** (make the declared benchmark binding — small,
-and it is what stops H1 being a table nobody answers to), then **H2** (random-timing
-null, which separates "the signal carries information" from "being out of the market
-sometimes does all the work" — the natural next question given how small the matched
-edge turned out to be).
+**H4 is done (2026-08-28).** It was small, as expected, and it changed no committed
+number — by design: both existing strategies declared what they had actually
+pre-registered against, and both verdicts reproduced exactly. What it changed is
+that the next pre-registration cannot quietly grade itself against the easy
+comparison, and the matched mix is now something a strategy can fail.
+
+**What remains in H: H2** (random-timing null with matched turnover and
+time-in-market). It separates "the signal carries information" from "being out of
+the market sometimes does all the work" — the natural next question given how small
+the matched edge turned out to be, and the one H4 makes actionable, since a
+strategy can now declare that it must beat the null rather than merely be shown
+next to it.
 
 **G is now the larger open block**, and H1's outcome raises the value of two of its
 items in particular: **G2** (reproduce Faber's published numbers) because the matched
