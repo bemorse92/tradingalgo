@@ -61,3 +61,4 @@ See [design_docs/](design_docs/) for deeper write-ups on architecture decisions,
 - [Scaffolding](design_docs/scaffolding.md) — engine choice, strategy contract, layout, build order
 - [Next Steps](design_docs/next_steps.md) — proposed sequence from built harness to a defensible answer
 - [Findings](design_docs/findings.md) — results from the first pre-registered runs
+- [Path to Trading](design_docs/path_to_trading.md) — platform capabilities still needed before trades can be placed
