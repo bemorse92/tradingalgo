@@ -8,3 +8,5 @@ pyarrow
 pytest
 ruff
 ffn  # statistics oracle: cross-checks backtest/stats.py in the test suite
+xlrd  # only to re-pull Shiller's .xls for `reproduce --refresh`; the pinned path
+      # needs nothing extra, because the reference data is committed

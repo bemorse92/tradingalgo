@@ -10,8 +10,8 @@ Written 2026-08-28. Assumes familiarity with [findings.md](findings.md) and
 
 **Progress.** Objectives are marked **Built** inline as they land, with what the
 result actually was — an objective completed without recording what it changed is
-half a record. Done so far: **H1** and **H3** (2026-08-28). Everything else below
-is open.
+half a record. Done so far: **H1**, **H3**, **H4** and **G2** (2026-08-28).
+Everything else below is open.
 
 ---
 
@@ -261,6 +261,55 @@ is suspect.
 
 *Done when:* the discrepancy is either negligible or explained.
 
+**Built 2026-08-28** (`backtest/reproduce.py`, `python -m backtest.cli reproduce`).
+Faber's 10-month rule is re-implemented and run through the same engine, the same
+single `.shift(1)` and the same statistics as any strategy here, then compared to
+the figures in his 2013 update. Nine published quantities were checked; **seven
+match and two are explained.**
+
+| Check | Published | Ours | Gap |
+|---|---|---|---|
+| buy & hold, compound return 1901–2012 | 9.32% | 9.49% | +0.17pp |
+| buy & hold, mean annual return | 11.26% | 11.33% | +0.07pp |
+| buy & hold, drawdown in the 1929–32 bear | −83.66% | −81.76% | 1.90pp |
+| timing, drawdown in the 1929–32 bear | −42.24% | −43.77% | 1.53pp |
+| timing, share of months invested | ~70% | 69.79% | 0.21pp |
+| buy & hold, drawdown of the 2008–09 bear (SPY) | −50.95% | −50.78% | 0.17pp |
+| timing exits during October 2000 | yes | yes | exact |
+| timing out of the market by January 2008 | yes | yes | exact |
+| timing, compound return 1901–2012 | 10.18% | 11.29% | **+1.11pp** |
+
+**The buy-and-hold row is the load-bearing one.** It involves no signal, no cash
+and no parameters, so it isolates data → engine → statistics and nothing else. It
+lands within 0.17pp on a 112-year compound return and 0.07pp on the mean annual
+return. That path is corroborated.
+
+**Two departures, both forced by data rather than chosen.** Faber's series is
+Global Financial Data's, which is paywalled; we substitute Shiller's, whose prices
+are *monthly averages of daily closes* rather than month-end closes. And Faber's
+cash is 90-day bills, where the longest free series (Ken French's one-month bill)
+starts 1926-07, so pre-1926 cash is reported as a bracket rather than invented.
+
+**The residual is measured, not asserted.** The timing model's *return* runs about
+1pp hot. To test whether sampling explains it, both conventions were built from one
+daily SPY series and the same rule run on each: monthly averaging alone moves the
+timing compound return by **+0.20pp over twenty years, in the same direction**.
+The direction is confirmed and the magnitude is of the right order; the residual is
+attributed to it but not fully accounted for. Those two rows are recorded as
+EXPLAINED, which is a weaker claim than MATCH and is meant to be.
+
+**One error worth recording**, because it nearly became a finding: the timing
+model's *worst* drawdown of the century is 1941, not 1929–32. Comparing our
+all-time maximum to Faber's 1929–32 episode figure produced a spurious 5.2pp gap.
+Measured on the same episode it is 1.53pp. The lesson generalises beyond this
+check — a drawdown number means nothing without the window it was measured over.
+
+**It is now a test, not an event.** `tests/test_reproduce.py` asserts that no check
+fails without an explanation, that the reference data checksums have not moved, and
+— following the same principle as the look-ahead fixture — that deliberately
+breaking the lag *does* make the reproduction disagree. A check that has never
+caught anything is not known to work.
+
 **G3. Rebalance-timing sensitivity.**
 Start-date sensitivity is tested; rebalance-date sensitivity is not. A rule that works
 rebalancing on the last trading day of the month but not on the 15th is fitted to a
@@ -482,11 +531,15 @@ the matched edge turned out to be, and the one H4 makes actionable, since a
 strategy can now declare that it must beat the null rather than merely be shown
 next to it.
 
-**G is now the larger open block**, and H1's outcome raises the value of two of its
-items in particular: **G2** (reproduce Faber's published numbers) because the matched
-benchmark is now doing real work and a pipeline bug would be expensive, and **G4**
-(block bootstrap intervals) because a 1.6–4.0pp effect is exactly the size where a
-point estimate is not an answer. G1, G3 and G5 are unchanged.
+**G is now the larger open block. G2 is done (2026-08-28)** and it came back clean:
+the harness reproduces a century-old published result end to end, so the existing
+findings are not resting on a pipeline bug. That was the cheaper of the two items
+H1 promoted.
+
+**The remaining one is G4** (block bootstrap intervals), because a 1.6–4.0pp effect
+is exactly the size where a point estimate is not an answer — and G2 has now removed
+the competing explanation that the effect is a measurement error. G1, G3 and G5 are
+unchanged.
 
 **I runs alongside them.** I1 (hypothesis assistance) is available immediately. I2
 (null calibration) is most valuable *just before* A, since its output is the threshold

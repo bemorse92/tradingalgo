@@ -36,6 +36,16 @@ benchmarks:
 python -m backtest.cli robustness <strategy_name>
 ```
 
+Check the harness itself against a published result:
+
+```bash
+python -m backtest.cli reproduce
+```
+
+This re-implements Faber's 10-month timing rule on committed reference data and
+compares the output to the figures in his paper. It is the only check here that can
+catch a mistake shared by the code and its own unit tests. It logs no trials.
+
 Other commands: `snapshots` (list pinned data), `ledger` (every trial ever run).
 
 Re-running a settled strategy to see new reporting is not a new search, and should
@@ -50,12 +60,14 @@ Choosing among results is `search` whatever it is called.
   static mixes matched to its own volatility and equity exposure; which one grades a
   strategy is declared on it in advance), `criteria`
   (pre-registered bars, graded mechanically), `ledger` (append-only trial log),
-  `validate` (look-ahead detection, pre-registration gate, holdout gate), `runner`,
-  `report`, `cli`.
+  `validate` (look-ahead detection, pre-registration gate, holdout gate), `reproduce`
+  (the harness checked against externally published results), `runner`, `report`, `cli`.
 - `strategies/` — one `Strategy` subclass per module, each paired with a `.prereg.md`
   committed *before* its first result exists.
 - `data/` — `snapshots.json` is the committed registry; `cache/` holds the pinned pulls
   and is gitignored.
+- `data/reference/` — pinned inputs for the published-result reproduction. Committed:
+  a reproduction that re-downloads its own inputs is not one.
 - `results/trials.csv` — the trial ledger. Committed: it is the audit trail.
 - `tests/`
 

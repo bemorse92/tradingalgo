@@ -5,6 +5,7 @@
     python -m backtest.cli ledger              # show the trial ledger
     python -m backtest.cli run <strategy>      # sweep a strategy's grid
     python -m backtest.cli robustness <strat>  # start-date and cost sweeps
+    python -m backtest.cli reproduce           # check the harness against published results
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import importlib
 import inspect
 import sys
 
-from . import benchmarks, data, engine, ledger, report, runner, stats, validate
+from . import benchmarks, data, engine, ledger, report, reproduce, runner, stats, validate
 from .runner import RunReport, run_strategy
 from .strategy import Strategy
 
@@ -145,6 +146,28 @@ def _print_report(rep: RunReport) -> None:
     )
 
 
+def _print_reproduction(rep: reproduce.Reproduction) -> None:
+    print(report.section(rep.source))
+    rows = [
+        {
+            "check": c.name,
+            "published": report.pct(c.published),
+            "ours": report.pct(c.reproduced),
+            "gap": report.points(c.gap),
+            "tol": report.points(c.tolerance),
+            "result": c.status,
+        }
+        for c in rep.checks
+    ]
+    print(report.table(rows))
+    for note in rep.notes:
+        print(f"\n  {note}")
+    for check in rep.checks:
+        if check.explanation:
+            print(f"\n  {check.name} -- {check.explanation}")
+    print(f"\n  VERDICT: {rep.verdict}")
+
+
 def _print_robustness(strategy_cls, prices, snapshot, cost_bps: float) -> None:
     """Start-date and cost sweeps, both logged as `robustness` rather than search."""
     print(report.section(f"{strategy_cls.name}: start-date sweep"))
@@ -217,6 +240,32 @@ def _print_robustness(strategy_cls, prices, snapshot, cost_bps: float) -> None:
     print(report.table(rows))
 
 
+def _run_reproduce(args) -> int:
+    """The whole `reproduce` command: refresh if asked, then report."""
+    if args.refresh:
+        for name, digest in reproduce.refresh().items():
+            print(f"  rewrote {name}  checksum {digest}")
+    _print_reproduction(reproduce.reproduce_faber())
+    _print_reproduction(reproduce.sampling_sensitivity())
+
+    print(report.section("Signal dates Faber names in the text"))
+    rows = [
+        {"claim": name, "expected": expected, "ours": actual,
+         "result": "MATCH" if expected == actual else "FAIL"}
+        for name, expected, actual in reproduce.reproduce_signal_dates()
+    ]
+    print(report.table(rows))
+    print(
+        "\n  A statistic can agree for the wrong reasons; a named month cannot.\n"
+        "  These test the signal and the month-end convention at one point each."
+    )
+    print(
+        "\n  Nothing here touches the trial ledger. Reproducing a published result\n"
+        "  is a check on the machinery, not a search for a strategy."
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="backtest", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -233,6 +282,17 @@ def main(argv: list[str] | None = None) -> int:
     rob.add_argument("strategy")
     rob.add_argument("--snapshot", default=None)
     rob.add_argument("--cost-bps", type=float, default=engine.DEFAULT_COST_BPS)
+
+    rep = sub.add_parser(
+        "reproduce",
+        help="check this harness against externally published results (no trials logged)",
+    )
+    rep.add_argument(
+        "--refresh",
+        action="store_true",
+        help="re-pull the pinned reference data from source. Changes what is being "
+        "reproduced against, so it is not something to do casually.",
+    )
 
     run = sub.add_parser("run", help="sweep a strategy's declared grid")
     run.add_argument("strategy", help="module name under strategies/")
@@ -295,6 +355,10 @@ def main(argv: list[str] | None = None) -> int:
         print(frame.to_string(index=False))
         print(f"\n  {len(frame)} trials logged.")
         return 0
+
+    if args.command == "reproduce":
+        return _run_reproduce(args)
+
 
     prices, snapshot = data.load(args.snapshot)
     if args.command == "robustness":

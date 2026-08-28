@@ -323,6 +323,85 @@ logged as `robustness`: re-runs of already-declared configurations under new
 reporting, which is what that tag means. No search budget was spent, and the
 deflation is unchanged.
 
+---
+
+## Addendum: the harness reproduces a published result
+
+*Added 2026-08-28. Implements [path_to_trading.md](path_to_trading.md) G2.*
+
+Everything above assumes the machinery is correct. Until now that assumption
+rested on unit tests written by the same person who wrote the code. This addendum
+checks it against someone else's numbers, published before this project existed.
+
+Faber's 10-month timing rule was re-implemented and run through **the same engine,
+the same single `.shift(1)` and the same statistics** as any strategy here, then
+compared to his 2013 update. Run it with `python -m backtest.cli reproduce`.
+
+| Check | Published | Ours | Gap |
+|---|---|---|---|
+| buy & hold, compound return 1901–2012 | 9.32% | 9.49% | +0.17pp |
+| buy & hold, mean annual return | 11.26% | 11.33% | +0.07pp |
+| buy & hold, drawdown in the 1929–32 bear | −83.66% | −81.76% | 1.90pp |
+| timing, drawdown in the 1929–32 bear | −42.24% | −43.77% | 1.53pp |
+| timing, share of months invested | ~70% | 69.79% | 0.21pp |
+| buy & hold, drawdown of the 2008–09 bear (SPY) | −50.95% | −50.78% | 0.17pp |
+| timing exits during October 2000 | yes | yes | exact |
+| timing out of the market by January 2008 | yes | yes | exact |
+| timing, compound return 1901–2012 | 10.18% | 11.29% | **+1.11pp** |
+
+**Seven match; two are explained.** The buy-and-hold rows carry the most weight
+because they involve no signal, no cash and no parameters — they isolate data →
+engine → statistics and nothing else, and they land within 0.17pp on a 112-year
+compound return.
+
+The timing model's *return* runs about a point hot. The cause is that Faber's
+series is Global Financial Data's month-end closes, which is paywalled, while
+ours is Shiller's — whose prices are *monthly averages of daily closes*. For a
+trend rule that is not cosmetic: it changes which months the signal is invested.
+Rather than assert that, it was measured. Both conventions were built from one
+daily SPY series and the same rule run on each: **monthly averaging alone moves
+the timing compound return by +0.20pp over twenty years, in the same direction.**
+Direction confirmed, magnitude of the right order, residual attributed but not
+fully accounted for. Those rows are recorded as EXPLAINED, which is deliberately
+a weaker claim than MATCH.
+
+### What this does and does not license
+
+- **It does not make any strategy result more likely to be right.** It removes one
+  competing explanation for them being wrong. `sma_trend` is still roughly neutral
+  against a same-risk static mix post-2008, and G2 says that finding is not a
+  measurement error.
+- **It raises the value of G4.** A 1.6–4.0pp effect measured by a corroborated
+  pipeline deserves a confidence interval; the same effect from an unverified
+  pipeline deserved a bug hunt first. That ordering is now settled.
+- **It costs no trials.** Reproducing a published result is a check on the
+  machinery, not a search for a strategy. The ledger is untouched at 147.
+
+### An error worth recording
+
+The first comparison showed the timing model's max drawdown at −47.45% against
+Faber's −42.24% — a 5.2pp gap that looked like a real problem. It was not. Our
+figure was the model's worst drawdown *of the century*, which occurs in **1941**;
+Faber's is the drawdown during the **1929–32** bear he was describing. Measured on
+the same episode the gap is 1.53pp.
+
+Two different events, compared as though they were one. The lesson generalises
+past this check: a drawdown figure is meaningless without the window it was
+measured over, and that applies to every drawdown number in this document.
+
+### It is now a test, not an event
+
+`tests/test_reproduce.py` runs the reproduction on every test run and asserts no
+check fails without a stated explanation. The reference data is committed and its
+checksums asserted, because a reproduction that re-downloads its inputs is not
+one. And following the same principle as the look-ahead fixture — a check that has
+never caught anything is not known to work — one test deliberately breaks the lag
+and requires the reproduction to *stop* agreeing with Faber.
+
+### Ledger state
+
+147 trials, 15 of them `search`. Holdout: **unconsumed.**
+
 (The `search` count is 15 rather than the 6 recorded earlier in this document: a
 re-run of both strategies on 2026-08-28T00:08 was logged as `search`, before the
 `--kind` flag existed. It is left as recorded — the ledger is append-only, and a

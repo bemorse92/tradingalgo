@@ -40,3 +40,7 @@ logs/
 # even though *.csv is ignored above.
 !results/trials.csv
 !data/snapshots.json
+
+# Pinned reference data for reproducing published results. Committed for the same
+# reason as the ledger: a reproduction that depends on a live download is not one.
+!data/reference/*.csv

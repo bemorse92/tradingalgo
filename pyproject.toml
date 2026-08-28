@@ -30,3 +30,6 @@ ignore = [
 # Strategy subclasses declare `fixed` and `fitted` as class-level data. That
 # declaration is the contract the harness enforces against, not an oversight.
 "strategies/*" = ["RUF012"]
+# `main` is a subcommand dispatcher: one early return per command is the clearest
+# shape it can have, and collapsing them to satisfy a counter would hurt it.
+"backtest/cli.py" = ["PLR0911"]

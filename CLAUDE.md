@@ -7,8 +7,15 @@ This project will create strategies and backtest strategies around stock trading
 
 ## Design Goals
 
-- Use out-of-the-box, deterministic software whenever possible.
-- Nondeterminism (ML models, LLMs, etc.) is a last resort — reach for it only when deterministic approaches genuinely don't work.
+- **Build software that solves the problem.** The answer should come from code that can
+  be read, tested, and re-run to the same result — not from an LLM thinking about it and
+  responding. If a question needs judgment applied repeatedly, encode the judgment.
+- **No neural networks or deep learning** unless there is genuinely no other way. The
+  objection is not to randomness; it is to models whose behaviour cannot be inspected or
+  argued with.
+- **Randomness is fine where it is the right tool** — bootstraps, permutation tests,
+  Monte Carlo nulls. Seed it, pin the seed, and the run stays reproducible.
+- Prefer out-of-the-box, well-trodden components over bespoke ones.
 
 ## Working Principles (for Claude)
 
@@ -33,7 +40,8 @@ statistics oracle in tests. No broker/execution API — trades are placed manual
   alternatives a strategy must beat, including exposure- and volatility-matched static
   mixes; the strategy declares which one grades it), `ledger` (append-only trial log),
   `validate` (future-corruption test, parameter budget, prereg presence, holdout gate),
-  `report`, `cli`.
+  `reproduce` (the harness checked end-to-end against published results, on pinned
+  reference data), `report`, `cli`.
 - `strategies/` — one `Strategy` subclass per strategy, each declaring `rationale`,
   `benchmark`, `fixed` and `fitted` params, paired with a `.prereg.md` committed *before*
   results exist. The
