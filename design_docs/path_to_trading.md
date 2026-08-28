@@ -213,9 +213,185 @@ successful one.
 
 ---
 
+## G. Know whether the evaluation itself is good enough
+
+Everything so far assumes the way results are judged is sound. That assumption has
+not been tested against anything external.
+
+**G1. Gap analysis against established evaluation methods.**
+The harness implements a specific subset of what the literature offers, and some
+omissions were deliberate while others are simply unexamined. Known candidates not
+built: probability-of-backtest-overfitting via combinatorial cross-validation,
+White's Reality Check and Hansen's SPA test (bootstrap methods for testing a whole
+universe of rules at once — directly relevant if strategy generation is automated),
+drawdown-focused metrics beyond maximum (Ulcer index, time-under-water distribution,
+Calmar), and factor attribution to check whether an apparent edge is just market
+exposure timing in disguise.
+
+*Needed:* a documented survey of what exists, what this project uses, what it
+deliberately skips and why, and what it should adopt.
+
+*Done when:* the choice of evaluation methods is a defended position rather than an
+accident of what got built first.
+
+**G2. Validate the harness against published results.**
+The statistics are unit-tested against known values, but no *strategy* result has
+ever been checked against an external source. If our Faber implementation reproduces
+Faber's published figures over the overlapping period, that is strong evidence the
+whole pipeline is correct. If it does not, something is wrong and every result so far
+is suspect.
+
+*Needed:* at least one strategy reproduced against externally published numbers.
+
+*Done when:* the discrepancy is either negligible or explained.
+
+**G3. Rebalance-timing sensitivity.**
+Start-date sensitivity is tested; rebalance-date sensitivity is not. A rule that works
+rebalancing on the last trading day of the month but not on the 15th is fitted to a
+calendar artifact, not to a market effect.
+
+*Done when:* results are reported across several rebalance offsets, the same way they
+are across start dates.
+
+**G4. Confidence intervals around the headline numbers.**
+Every result is currently a point estimate. With roughly four independent bear markets
+in the sample, the uncertainty is large and invisible.
+
+*Needed:* block bootstrap intervals, with the honest caveat attached — a bootstrap
+quantifies uncertainty in the data you have, it does not manufacture new information,
+and it cannot invent a bear market of a type never observed.
+
+*Done when:* headline claims carry intervals, and the intervals are wide enough to be
+uncomfortable, which they will be.
+
+**G5. Regime-conditional evaluation.**
+Aggregate statistics hide that a rule may work in one environment and fail in another.
+2022 already showed this: rising rates broke the defensive sleeves.
+
+*Done when:* results can be broken out by regime (rate direction, inflation, equity
+trend) rather than only by drawdown event.
+
+---
+
+## H. Benchmarks that make a result defensible
+
+Buy-and-hold SPY is the right primary benchmark, but on its own it is too easy a
+comparison, and it flatters any strategy that simply reduces market exposure.
+
+**H1. Exposure-matched benchmarks — the important one.**
+`sma_trend` runs at 12.4% volatility against SPY's 20.7%. It is roughly a 60%-exposure
+portfolio. The honest question is therefore not "does it beat 100% SPY" but **"does it
+beat statically holding 60% SPY and 40% cash?"** — a portfolio requiring no signal, no
+timing, and no discipline. If a static mix matches it, the rule contributes nothing and
+the entire result is explained by holding less stock.
+
+*Needed:* automatic construction of a static benchmark matched to the strategy's
+realised exposure or volatility.
+
+*Done when:* every strategy report shows it, and it is treated as a criterion rather
+than a curiosity. **This is the single most likely way the current results get
+overturned.**
+
+**H2. A random-timing benchmark.**
+Related but distinct: a rule that enters and exits at random with the *same turnover*
+and *same time-in-market* as the strategy. This isolates whether the signal carries
+information, or whether being out of the market sometimes is doing all the work.
+
+*Done when:* results are reported against a distribution of random-timing runs, not a
+single one, so the strategy's percentile against luck is visible.
+
+**H3. Standard portfolio benchmarks.**
+60/40, equal-weight the basket, inverse-volatility weighting, and 100% cash. These are
+what a reasonable person would otherwise do, and 60/40 in particular is the comparison
+the tactical-fund literature used when it found most such funds underperforming.
+
+**H4. Benchmark as a declared choice.**
+Which benchmark a strategy must beat should be part of its pre-registration, not
+selected afterwards from whichever it happens to beat.
+
+*Done when:* benchmark selection is declared data on the strategy, graded like any
+other criterion.
+
+---
+
+## I. LLM-assisted strategy generation
+
+Wanted explicitly, and genuinely useful — but it collides head-on with two things
+already established, and the collision is worth designing around rather than
+discovering later.
+
+**The tension, stated plainly.** The project's stated design goal is deterministic
+tools first, nondeterminism as a last resort. More seriously: automated strategy
+generation is a *trial-count multiplier*, and the honesty penalty scales with trials.
+Generating and testing 500 strategies raises the bar every candidate must clear from
+roughly 0.16 to 0.41 annualised — and retroactively devalues every result produced so
+far. Done naively, this is automated p-hacking with a machine that never gets tired.
+It also directly violates the protocol item that a strategy should begin from an
+economic rationale rather than from search.
+
+None of that makes it a bad idea. It makes the *design* load-bearing.
+
+**I1. Generation as hypothesis assistance, not search.**
+The safe and most valuable mode: the model proposes a *mechanism* with a stated
+economic rationale, drafts the pre-registration including criteria and a falsification
+condition, and implements the rule — but nothing runs until a human reviews and
+commits the pre-registration. The tedious half is automated; the declared-hypothesis
+half is preserved.
+
+*Done when:* a proposed strategy arrives as a reviewable pre-registration plus
+implementation, and the harness still refuses to run it uncommitted.
+
+**I2. Bulk generation as null calibration — the useful repurposing.**
+Rather than fighting the trial-count problem, use it. Let the model generate hundreds
+of *plausible-sounding* strategies and run them all, deliberately, as noise. The best
+of that population tells you empirically what "best of N plausible ideas" looks like
+by luck alone — on this data, this universe, this sample length. That is a far better
+threshold for a real candidate to beat than a theoretical formula, because it is
+calibrated to the actual problem.
+
+This converts the dangerous capability into a measuring instrument: the generator
+produces the null distribution, not the candidates.
+
+*Done when:* the empirical best-of-N distribution is available and real candidates are
+scored against it.
+
+**I3. Strict isolation in the trial record.**
+Bulk-generated runs must be logged under their own kind — neither `search` nor
+`robustness` — so they build the null distribution without inflating the penalty on
+independently declared human candidates.
+
+**The rule that makes this honest:** isolation holds *only* while the two searches are
+genuinely separate. If a human candidate is chosen **because** the bulk sweep surfaced
+it, every one of those trials counts toward its penalty. Promotion from the generated
+pool to a real candidate must be recorded as exactly that, and re-scored accordingly.
+
+*Done when:* the ledger distinguishes the three kinds, and promotion out of the
+generated pool is an explicit, recorded act that carries the full trial count with it.
+
+**I4. The trap, named so it stays named.**
+The failure mode is running a large generated sweep, seeing something excellent, and
+treating it as a discovery. It will not be one — that is precisely what the
+best-of-many calculation predicts from worthless inputs. Anything surfaced this way
+must go back through I1: a stated mechanism, a fresh pre-registration, and ideally
+confirmation on data the sweep never touched.
+
+*Done when:* this is written into the pre-registration template, not just this
+document.
+
+---
+
 ## Rough sequence
 
-**A → B → C → D → E**, with F running alongside C.
+**G and H come before A**, and are the highest-value remaining research work: they
+determine whether the existing results mean anything. H1 in particular could overturn
+the current findings entirely, and doing it after selecting a candidate would be
+wasted effort.
+
+**I runs alongside them.** I1 (hypothesis assistance) is available immediately. I2
+(null calibration) is most valuable *just before* A, since its output is the threshold
+A ranks candidates against.
+
+Then **A → B → C → D → E**, with F running alongside C.
 
 A and B are decisions and small amounts of work; they are also gates — doing C before
 them means building execution machinery for a strategy that may not survive
