@@ -12,6 +12,7 @@ import pandas as pd
 import pytest
 
 from backtest import ledger, validate
+from backtest.criteria import Criterion
 from backtest.strategy import Strategy
 
 
@@ -41,6 +42,7 @@ class HonestTrend(Strategy):
     rationale = "Volatility clusters; large drawdowns are slow grinds, not gaps."
     fixed = {"defensive": "TLT"}
     fitted = {"lookback": [20, 40, 60]}
+    criteria = (Criterion("drawdown cut", "max_drawdown_vs_benchmark", 0.05),)
 
     def weights(self, prices: pd.DataFrame) -> pd.DataFrame:
         ma = prices["SPY"].rolling(self.params["lookback"]).mean()
@@ -61,6 +63,7 @@ class PeekingTrend(Strategy):
     rationale = "Intentionally invalid; used to verify the look-ahead check bites."
     fixed = {}
     fitted = {"lookback": [20]}
+    criteria = (Criterion("drawdown cut", "max_drawdown_vs_benchmark", 0.05),)
 
     def weights(self, prices: pd.DataFrame) -> pd.DataFrame:
         ma = prices["SPY"].rolling(self.params["lookback"], center=True).mean()

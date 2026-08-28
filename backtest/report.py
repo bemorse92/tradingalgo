@@ -156,3 +156,45 @@ def attribution(frame: pd.DataFrame) -> str:
         for _, r in frame.iterrows()
     ]
     return table(rows)
+
+
+def criteria(results, verdict_label: str) -> str:
+    """Pre-registered criteria, graded by the harness rather than by eye."""
+    if not results:
+        return "  (no criteria declared -- this result can neither pass nor fail)"
+    rows = [
+        {
+            "criterion": r.name,
+            "test": _describe(r.criterion),
+            "actual": f"{r.value:,.4f}",
+            "result": "PASS" if r.passed else "FAIL",
+        }
+        for r in results
+    ]
+    banner = f"\n  VERDICT: {verdict_label}"
+    return table(rows, ["criterion", "test", "actual", "result"]) + "\n" + banner
+
+
+def _describe(criterion) -> str:
+    direction = "at least" if criterion.comparison == "at_least" else "at most"
+    scope = " (all trials)" if criterion.scope == "all_trials" else ""
+    return f"{direction} {criterion.threshold:g}{scope}"
+
+
+def confidence(min_track_record_years: float, deflated: float) -> str:
+    """How much the numbers above can actually carry."""
+    unbounded = math.isinf(min_track_record_years) or math.isnan(min_track_record_years)
+    years = "beyond any horizon" if unbounded else f"{min_track_record_years:,.0f} years"
+    rows = [
+        {
+            "measure": "deflated Sharpe",
+            "value": f"{deflated:.3f}",
+            "meaning": "survives the search to date",
+        },
+        {
+            "measure": "min track record needed",
+            "value": years,
+            "meaning": "to confirm this Sharpe live",
+        },
+    ]
+    return table(rows, ["measure", "value", "meaning"])

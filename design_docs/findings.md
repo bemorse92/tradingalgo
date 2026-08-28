@@ -126,3 +126,38 @@ Search Sharpes to date: 0.805, 0.745, 0.705 (`sma_trend`); 0.542, 0.477, 0.614
    real and persistent (~13pp post-2008); it costs 3–5 points of annual return. That
    is a *trade*, not an edge, and whether it is worth making is a preference question,
    not one more backtest.
+
+---
+
+## Addendum: machine-graded verdicts
+
+Criteria are now declared as data on each strategy and graded by the harness. The
+verdicts it produced independently reproduce the hand-grading above:
+
+| Criterion | sma_trend | dual_momentum |
+|---|---|---|
+| drawdown cut ≥ 0.10 | 0.3436 PASS | 0.2147 PASS |
+| CAGR within −0.02 | 0.0017 PASS | 0.0021 PASS |
+| protected in ≥ 3 events | 3 PASS | **2 FAIL** |
+| plateau (every trial) | 0.3309 PASS | 0.2147 PASS |
+| **Verdict** | **PASS** | **FAIL** |
+
+Agreement between hand and machine is reassuring but is not the point. The point is
+that every future verdict is produced by criteria committed before the run, so the
+comparison no longer happens in the researcher's head.
+
+Two numbers worth recording from the newly surfaced confidence block, both for
+`sma_trend`:
+
+- **Deflated Sharpe 0.974.** Not yet discriminating: at 6 search trials the
+  threshold it must clear is only ~0.16 annualised. It rises to ~0.29 at 50 trials
+  and ~0.41 at 1,000, so it will start biting on its own as the search widens. A
+  high value here should not currently be read as validation.
+- **Minimum track record: 57 years.** This is measured against the *benchmark's*
+  Sharpe rather than against zero — "how long to confirm this beats buy-and-hold",
+  not "how long to confirm it beats nothing". It is the concrete form of the
+  earlier conclusion that live results cannot settle this question on any relevant
+  horizon.
+
+The holdout remains unconsumed, and is now guarded: a second consumption for the
+same strategy is refused unless explicitly forced, and either way is recorded.

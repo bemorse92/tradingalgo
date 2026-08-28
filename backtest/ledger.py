@@ -132,3 +132,16 @@ def sharpes(strategy_name: str | None = None, kind: str | None = "search") -> li
     if ledger.empty:
         return []
     return [float(s) for s in pd.to_numeric(ledger["sharpe"], errors="coerce").dropna()]
+
+
+def holdout_uses(strategy_name: str) -> pd.DataFrame:
+    """Every prior run that consumed the reserved period, for this strategy.
+
+    The holdout is a one-shot resource; this is what makes "already spent"
+    checkable rather than remembered.
+    """
+    frame = read()
+    if frame.empty or "used_holdout" not in frame.columns:
+        return frame
+    consumed = frame["used_holdout"].astype(str).str.lower() == "true"
+    return frame[consumed & (frame["strategy"] == strategy_name)]

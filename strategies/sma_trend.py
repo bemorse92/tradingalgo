@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from backtest.criteria import Criterion
 from backtest.strategy import Strategy
 from backtest.util import above_moving_average, one_hot, rebalance
 
@@ -20,6 +21,19 @@ class SmaTrend(Strategy):
     )
     fixed = {"defensive": "BIL", "rebalance": "month_end"}
     fitted = {"lookback": [150, 200, 250]}
+    # Transcribed verbatim from the pre-registration; the harness grades these,
+    # so the verdict is not something the researcher decides after seeing numbers.
+    criteria = (
+        Criterion("drawdown cut >= 10pp", "max_drawdown_vs_benchmark", 0.10),
+        Criterion("CAGR within 2pp", "cagr_vs_benchmark", -0.02),
+        Criterion("protected in >= 3 events", "positive_protection_events", 3),
+        Criterion(
+            "plateau: holds at every lookback",
+            "max_drawdown_vs_benchmark",
+            0.10,
+            scope="all_trials",
+        ),
+    )
 
     def weights(self, prices: pd.DataFrame) -> pd.DataFrame:
         defensive = self.params["defensive"]

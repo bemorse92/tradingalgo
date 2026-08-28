@@ -5,6 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from backtest.criteria import Criterion
 from backtest.strategy import MAX_FITTED_PARAMS, Strategy, StrategyDeclarationError
 from tests.conftest import HonestTrend
 
@@ -26,6 +27,7 @@ def test_declared_n_multiplies_across_parameters():
     class Two(Strategy):
         name = "two"
         rationale = "test"
+        criteria = (Criterion("c", "cagr", 0.0),)
         fitted = {"a": [1, 2, 3], "b": [10, 20]}
         weights = _weights_stub
 
@@ -48,6 +50,7 @@ def test_too_many_fitted_parameters_is_refused():
         class Overfit(Strategy):
             name = "overfit"
             rationale = "test"
+            criteria = (Criterion("c", "cagr", 0.0),)
             fitted = {"a": [1], "b": [2], "c": [3]}
             weights = _weights_stub
 
@@ -58,6 +61,7 @@ def test_missing_rationale_is_refused():
         class NoReason(Strategy):
             name = "no_reason"
             rationale = "   "
+            criteria = (Criterion("c", "cagr", 0.0),)
             weights = _weights_stub
 
 
@@ -66,6 +70,7 @@ def test_missing_name_is_refused():
 
         class Nameless(Strategy):
             rationale = "test"
+            criteria = (Criterion("c", "cagr", 0.0),)
             weights = _weights_stub
 
 
@@ -75,6 +80,7 @@ def test_parameter_declared_both_fixed_and_fitted_is_refused():
         class Confused(Strategy):
             name = "confused"
             rationale = "test"
+            criteria = (Criterion("c", "cagr", 0.0),)
             fixed = {"a": 1}
             fitted = {"a": [1, 2]}
             weights = _weights_stub
@@ -86,6 +92,7 @@ def test_empty_fitted_grid_is_refused():
         class EmptyGrid(Strategy):
             name = "empty_grid"
             rationale = "test"
+            criteria = (Criterion("c", "cagr", 0.0),)
             fitted = {"a": []}
             weights = _weights_stub
 

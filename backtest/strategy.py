@@ -21,6 +21,8 @@ from typing import Any, ClassVar
 
 import pandas as pd
 
+from .criteria import Criterion
+
 #: Hard cap on parameters chosen by looking at results.
 MAX_FITTED_PARAMS = 2
 
@@ -38,6 +40,7 @@ class Strategy(ABC):
         rationale = "Volatility clusters; large drawdowns are slow grinds, not gaps."
         fixed    = {"rebalance": "month_end"}       # a priori, never swept
         fitted   = {"lookback": [150, 200, 250]}    # searched -- max 2 keys
+        criteria = (Criterion("drawdown cut", "max_drawdown_vs_benchmark", 0.10),)
 
     and implement `weights()`. Do not lag inside `weights()`; the engine owns the
     only shift in the project.
@@ -47,6 +50,7 @@ class Strategy(ABC):
     rationale: ClassVar[str] = ""
     fixed: ClassVar[Mapping[str, Any]] = {}
     fitted: ClassVar[Mapping[str, Sequence[Any]]] = {}
+    criteria: ClassVar[Sequence[Criterion]] = ()
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Validate the declaration when the module is imported, not when it runs."""
@@ -61,6 +65,12 @@ class Strategy(ABC):
                 f"{cls.__qualname__} must declare a `rationale`: an ex-ante economic "
                 "foundation, stated before searching. This is protocol item #1 "
                 "(Arnott, Harvey & Markowitz)."
+            )
+        if not cls.criteria:
+            raise StrategyDeclarationError(
+                f"{cls.__qualname__} must declare `criteria`: the bar this must clear, "
+                "fixed before results exist. A strategy with no declared bar can be "
+                "graded on whichever metric happens to flatter it."
             )
         if len(cls.fitted) > MAX_FITTED_PARAMS:
             raise StrategyDeclarationError(

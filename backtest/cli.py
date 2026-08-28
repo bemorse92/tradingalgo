@@ -14,7 +14,7 @@ import importlib
 import inspect
 import sys
 
-from . import data, engine, ledger, report, runner, validate
+from . import data, engine, ledger, report, runner, stats, validate
 from .runner import RunReport, run_strategy
 from .strategy import Strategy
 
@@ -59,6 +59,10 @@ def _print_report(rep: RunReport) -> None:
     )
 
     best = rep.best_by_drawdown
+
+    print(report.section("Pre-registered criteria"))
+    print(report.criteria(rep.criteria, rep.verdict))
+
     print(report.section("Best by drawdown vs buy & hold"))
     print(report.comparison(best.metrics, rep.benchmark_metrics, rep.strategy_name))
     if best.params:
@@ -78,6 +82,18 @@ def _print_report(rep: RunReport) -> None:
     print(
         "\n  'deflated' is the probability the Sharpe survives the whole search to date.\n"
         "  Look for a flat neighbourhood, not a peak."
+    )
+
+    print(report.section("How much this can carry"))
+    # Measured against the benchmark's Sharpe, not against zero. "How long to
+    # confirm this beats nothing" is a trivial question; "how long to confirm it
+    # beats buy-and-hold" is the one the project is actually asking.
+    bench_sr = stats.sharpe_per_period(rep.benchmark.returns)
+    mintrl = stats.min_track_record_length(best.result.returns, bench_sr) / stats.TRADING_DAYS
+    print(report.confidence(mintrl, best.deflated_sharpe))
+    print(
+        "\n  Live results will not settle this within any relevant horizon; the\n"
+        "  evidence has to come from discipline about the sample that exists."
     )
 
     print(report.section("Followability (whipsaw / regret)"))
@@ -165,6 +181,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="consume the reserved period. Recorded in the ledger.",
     )
+    run.add_argument(
+        "--force-holdout",
+        action="store_true",
+        help="override the one-shot holdout guard. Recorded in the ledger.",
+    )
 
     args = parser.parse_args(argv)
 
@@ -213,6 +234,7 @@ def main(argv: list[str] | None = None) -> int:
         cost_bps=args.cost_bps,
         benchmark_ticker=args.benchmark,
         allow_holdout=args.allow_holdout,
+        force_holdout=args.force_holdout,
         note=args.note,
     )
     _print_report(rep)

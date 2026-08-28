@@ -11,6 +11,7 @@ from typing import Any
 
 import pandas as pd
 
+from . import criteria as criteria_mod
 from . import engine, ledger, stats, validate
 from .data import Snapshot
 from .strategy import Strategy
@@ -45,6 +46,12 @@ class RunReport:
     trials: list[TrialResult] = field(default_factory=list)
     attribution: pd.DataFrame = field(default_factory=pd.DataFrame)
     regret: dict[str, float] = field(default_factory=dict)
+    criteria: list[criteria_mod.CriterionResult] = field(default_factory=list)
+
+    @property
+    def verdict(self) -> str:
+        """PASS only if every pre-registered criterion passes."""
+        return criteria_mod.verdict(self.criteria)
 
     @property
     def best_by_drawdown(self) -> TrialResult:
@@ -66,6 +73,7 @@ def run_strategy(
     benchmark_ticker: str = "SPY",
     kind: str = "search",
     allow_holdout: bool = False,
+    force_holdout: bool = False,
     note: str = "",
 ) -> RunReport:
     """Validate, sweep the grid, log every trial, and return the report."""
@@ -73,7 +81,9 @@ def run_strategy(
     # holdout is truncated unless explicitly requested, and the strategy must
     # demonstrably not read ahead.
     probe = strategy_cls()
-    usable = validate.prepare(probe, prices, allow_holdout=allow_holdout)
+    usable = validate.prepare(
+        probe, prices, allow_holdout=allow_holdout, force_holdout=force_holdout
+    )
 
     benchmark = engine.buy_and_hold(usable, ticker=benchmark_ticker, cost_bps=cost_bps)
     benchmark_metrics = stats.summarise(benchmark.equity, benchmark.returns)
@@ -124,6 +134,9 @@ def run_strategy(
         trials=trials,
         regret=stats.regret(best.result.equity, benchmark.equity),
         attribution=attribution,
+        criteria=criteria_mod.evaluate(
+            strategy_cls.criteria, trials, best, benchmark_metrics, attribution
+        ),
     )
 
 

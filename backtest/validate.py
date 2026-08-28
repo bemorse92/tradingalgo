@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from . import ledger
 from .strategy import Strategy
 
 STRATEGY_DIR = Path(__file__).resolve().parent.parent / "strategies"
@@ -102,11 +103,41 @@ def prepare(
     strategy: Strategy,
     prices: pd.DataFrame,
     allow_holdout: bool = False,
+    force_holdout: bool = False,
     check_lookahead: bool = True,
 ) -> pd.DataFrame:
     """Run every pre-flight check and return the price frame the run may use."""
+    guard_holdout(type(strategy).name, allow_holdout, force=force_holdout)
     require_prereg(strategy)
     usable = apply_holdout(prices, allow_holdout=allow_holdout)
     if check_lookahead:
         assert_no_lookahead(strategy, usable)
     return usable
+
+
+class HoldoutExhaustedError(RuntimeError):
+    """Raised when a strategy's holdout has already been consumed."""
+
+
+def guard_holdout(strategy_name: str, allow_holdout: bool, force: bool = False) -> None:
+    """Refuse a second look at the reserved period.
+
+    A holdout consulted twice is not a holdout, and there is no second one. Until
+    now this depended entirely on the researcher remembering -- which is exactly
+    the kind of guardrail the project's own research says does not hold.
+    """
+    if not allow_holdout:
+        return
+
+    prior = ledger.holdout_uses(strategy_name)
+    if prior.empty or force:
+        return
+
+    when = prior["timestamp"].iloc[0]
+    raise HoldoutExhaustedError(
+        f"The holdout for {strategy_name!r} was already consumed on {when} "
+        f"({len(prior)} prior access(es)). A second look does not produce a second "
+        "out-of-sample test -- it produces an in-sample one you have not admitted to. "
+        "If you genuinely intend to override this, pass --force-holdout; the access "
+        "is recorded in the ledger either way."
+    )
