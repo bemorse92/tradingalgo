@@ -11,6 +11,7 @@ from typing import Any
 
 import pandas as pd
 
+from . import benchmarks as benchmarks_mod
 from . import criteria as criteria_mod
 from . import engine, ledger, stats, validate
 from .data import Snapshot
@@ -43,6 +44,12 @@ class RunReport:
     used_holdout: bool
     benchmark: engine.Result
     benchmark_metrics: dict[str, float]
+    #: The wider slate (exposure-matched, 60/40, cash, ...). Diagnostic only: the
+    #: criteria above are graded against `benchmark`, because these strategies
+    #: pre-registered against buy-and-hold and re-grading after the fact is the
+    #: failure mode the harness exists to prevent. Declaring a benchmark as part
+    #: of the pre-registration is path_to_trading.md H4.
+    benchmarks: list[benchmarks_mod.Benchmark] = field(default_factory=list)
     trials: list[TrialResult] = field(default_factory=list)
     attribution: pd.DataFrame = field(default_factory=pd.DataFrame)
     regret: dict[str, float] = field(default_factory=dict)
@@ -52,6 +59,15 @@ class RunReport:
     def verdict(self) -> str:
         """PASS only if every pre-registered criterion passes."""
         return criteria_mod.verdict(self.criteria)
+
+    @property
+    def vol_matched(self) -> benchmarks_mod.Benchmark | None:
+        """The static mix carrying the same risk with no signal.
+
+        Section H's claim is that this, not buy-and-hold, is the bar that decides
+        whether the rule contributed anything.
+        """
+        return next((b for b in self.benchmarks if b.name.startswith("vol-matched")), None)
 
     @property
     def best_by_drawdown(self) -> TrialResult:
@@ -131,6 +147,9 @@ def run_strategy(
         used_holdout=allow_holdout,
         benchmark=benchmark,
         benchmark_metrics=benchmark_metrics,
+        benchmarks=benchmarks_mod.build(
+            usable, best.result, cost_bps=cost_bps, risk_asset=benchmark_ticker
+        ),
         trials=trials,
         regret=stats.regret(best.result.equity, benchmark.equity),
         attribution=attribution,

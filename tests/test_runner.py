@@ -38,6 +38,20 @@ def test_run_reports_benchmark_and_deflated_sharpe(sandbox, prices):
         assert 0.0 <= trial.deflated_sharpe <= 1.0
 
 
+def test_run_builds_the_benchmark_slate_without_logging_it(sandbox, prices):
+    """Benchmarks are yardsticks, not candidates: they must not consume trials.
+
+    A benchmark that inflated the trial count would penalise the strategy for
+    being measured honestly, which is exactly backwards.
+    """
+    report = runner.run_strategy(HonestTrend, prices, SNAPSHOT)
+
+    assert report.benchmarks, "no benchmarks built"
+    assert ledger.trial_count() == HonestTrend.declared_n()
+    # No cash sleeve in this fixture, so the matched mixes are skipped, not faked.
+    assert report.vol_matched is None
+
+
 def test_best_by_drawdown_picks_the_shallowest_not_the_richest(sandbox, prices):
     report = runner.run_strategy(HonestTrend, prices, SNAPSHOT)
     shallowest = max(t.metrics["max_drawdown"] for t in report.trials)

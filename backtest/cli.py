@@ -69,6 +69,15 @@ def _print_report(rep: RunReport) -> None:
         shown = ", ".join(f"{k}={v}" for k, v in sorted(best.params.items()))
         print(f"\n  at {shown}")
 
+    print(report.section("Against benchmarks that need no signal"))
+    print(report.benchmarks(rep.benchmarks, best.metrics, rep.strategy_name))
+    print(
+        "\n  Buy & hold alone flatters any rule that simply holds less equity. The\n"
+        "  matched rows hold the same risk with no signal, no timing and no\n"
+        "  discipline: losing to one of those means the rule contributed nothing.\n"
+        "  Diagnostic only -- the graded criteria above are the pre-registered ones."
+    )
+
     print(report.section("Parameter plateau"))
     rows = []
     for trial in rep.trials:
@@ -117,10 +126,11 @@ def _print_robustness(strategy_cls, prices, snapshot, cost_bps: float) -> None:
         "  A single start date is a hidden parameter. The post-2008 row is the one\n"
         "  that matters: if the edge needs 2008, the finding is that 2008 happened.\n"
     )
-    rows = []
-    for start, rep in runner.start_date_sweep(
+    sweep = runner.start_date_sweep(
         strategy_cls, prices, snapshot, START_DATES, cost_bps=cost_bps
-    ):
+    )
+    rows = []
+    for start, rep in sweep:
         best = rep.best_by_drawdown
         rows.append(
             {
@@ -132,6 +142,34 @@ def _print_robustness(strategy_cls, prices, snapshot, cost_bps: float) -> None:
                 "bench dd": report.pct(rep.benchmark_metrics["max_drawdown"]),
                 "dd saved": report.pct(
                     best.metrics["max_drawdown"] - rep.benchmark_metrics["max_drawdown"]
+                ),
+            }
+        )
+    print(report.table(rows))
+
+    print(report.section(f"{strategy_cls.name}: vs the vol-matched mix, by start date"))
+    print(
+        "  The same two questions asked of a portfolio that needs no signal: same\n"
+        "  risk, held constantly. Positive deltas mean the timing rule earned its\n"
+        "  keep; negative means the result was 'held less stock' all along.\n"
+    )
+    rows = []
+    for start, rep in sweep:
+        matched = rep.vol_matched
+        if matched is None:
+            continue
+        best = rep.best_by_drawdown
+        rows.append(
+            {
+                "from": start,
+                "mix": matched.name.split()[1],
+                "cagr": report.pct(best.metrics["cagr"]),
+                "matched cagr": report.pct(matched.metrics["cagr"]),
+                "d cagr": report.points(best.metrics["cagr"] - matched.metrics["cagr"]),
+                "max_dd": report.pct(best.metrics["max_drawdown"]),
+                "matched dd": report.pct(matched.metrics["max_drawdown"]),
+                "d max dd": report.points(
+                    best.metrics["max_drawdown"] - matched.metrics["max_drawdown"]
                 ),
             }
         )
@@ -176,6 +214,17 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--cost-bps", type=float, default=engine.DEFAULT_COST_BPS)
     run.add_argument("--benchmark", default="SPY")
     run.add_argument("--note", default="")
+    run.add_argument(
+        "--kind",
+        choices=("search", "robustness"),
+        default="search",
+        help=(
+            "how these trials count. `search` deflates the Sharpe (configurations "
+            "selected among); `robustness` does not (a re-run of a configuration "
+            "already declared). Re-running a settled strategy to see new reporting "
+            "is robustness. Choosing among results is search, whatever it is called."
+        ),
+    )
     run.add_argument(
         "--allow-holdout",
         action="store_true",
@@ -233,6 +282,7 @@ def main(argv: list[str] | None = None) -> int:
         snapshot,
         cost_bps=args.cost_bps,
         benchmark_ticker=args.benchmark,
+        kind=args.kind,
         allow_holdout=args.allow_holdout,
         force_holdout=args.force_holdout,
         note=args.note,

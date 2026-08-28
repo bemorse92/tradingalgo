@@ -29,7 +29,9 @@ statistics oracle in tests. No broker/execution API — trades are placed manual
 
 - `backtest/` — the harness: `data` (fetch/cache/pin, total-return series), `engine`
   (weights → equity curve; owns the single `.shift(1)` and the cost model), `stats`
-  (CAGR/drawdown/Sharpe/DSR/PSR, per-event attribution), `ledger` (append-only trial log),
+  (CAGR/drawdown/Sharpe/DSR/PSR, per-event attribution), `benchmarks` (the signal-free
+  alternatives a strategy must beat, including exposure- and volatility-matched static
+  mixes), `ledger` (append-only trial log),
   `validate` (future-corruption test, parameter budget, prereg presence, holdout gate),
   `report`, `cli`.
 - `strategies/` — one `Strategy` subclass per strategy, each declaring `rationale`, `fixed`,

@@ -47,6 +47,11 @@ def pct(value: float) -> str:
     return "n/a" if math.isnan(value) else f"{value * 100:,.2f}%"
 
 
+def points(value: float) -> str:
+    """A signed difference in percentage points. The sign is the whole message."""
+    return "n/a" if math.isnan(value) else f"{value * 100:+,.2f}pp"
+
+
 def section(title: str) -> str:
     return f"\n{title}\n{'=' * len(title)}"
 
@@ -101,6 +106,42 @@ def comparison(strategy: dict[str, float], benchmark: dict[str, float], label: s
         },
     ]
     return table(rows, ["metric", label, "buy & hold"])
+
+
+def benchmarks(slate, strategy: dict[str, float], label: str) -> str:
+    """The strategy against every alternative that needs no signal to follow.
+
+    The exposure-matched rows are the ones that decide whether the rule did
+    anything: if a static mix at the same risk matches it, the result is
+    "held less stock", not "timed the market".
+    """
+    if not slate:
+        return "  (no benchmarks available in this snapshot)"
+    rows = [
+        {
+            "benchmark": label,
+            "cagr": pct(strategy["cagr"]),
+            "max dd": pct(strategy["max_drawdown"]),
+            "vol": pct(strategy["volatility"]),
+            "sharpe": f"{strategy['sharpe']:.3f}",
+            "d cagr": "--",
+            "d max dd": "--",
+        }
+    ]
+    rows += [
+        {
+            "benchmark": b.name,
+            "cagr": pct(b.metrics["cagr"]),
+            "max dd": pct(b.metrics["max_drawdown"]),
+            "vol": pct(b.metrics["volatility"]),
+            "sharpe": f"{b.metrics['sharpe']:.3f}",
+            "d cagr": points(strategy["cagr"] - b.metrics["cagr"]),
+            "d max dd": points(strategy["max_drawdown"] - b.metrics["max_drawdown"]),
+        }
+        for b in slate
+    ]
+    legend = "\n".join(f"  {b.name:<34} {b.meaning}" for b in slate)
+    return table(rows) + "\n\n" + legend
 
 
 def plateau(rows: Sequence[dict[str, Any]]) -> str:

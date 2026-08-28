@@ -29,14 +29,28 @@ Run a strategy across its declared parameter grid:
 python -m backtest.cli run <strategy_name>
 ```
 
+Sweep it across start dates and cost assumptions, and against the signal-free
+benchmarks:
+
+```bash
+python -m backtest.cli robustness <strategy_name>
+```
+
 Other commands: `snapshots` (list pinned data), `ledger` (every trial ever run).
+
+Re-running a settled strategy to see new reporting is not a new search, and should
+say so — `run --kind robustness` logs the trials without deflating anyone's Sharpe.
+Choosing among results is `search` whatever it is called.
 
 ## Layout
 
 - `backtest/` — the harness. `data` (fetch/cache/pin), `engine` (weights → equity curve;
   owns the only lag in the project), `stats` (performance plus deflated/probabilistic
-  Sharpe), `ledger` (append-only trial log), `validate` (look-ahead detection,
-  pre-registration gate, holdout gate), `runner`, `report`, `cli`.
+  Sharpe), `benchmarks` (the signal-free portfolios a strategy has to beat, including
+  static mixes matched to its own volatility and equity exposure), `criteria`
+  (pre-registered bars, graded mechanically), `ledger` (append-only trial log),
+  `validate` (look-ahead detection, pre-registration gate, holdout gate), `runner`,
+  `report`, `cli`.
 - `strategies/` — one `Strategy` subclass per module, each paired with a `.prereg.md`
   committed *before* its first result exists.
 - `data/` — `snapshots.json` is the committed registry; `cache/` holds the pinned pulls

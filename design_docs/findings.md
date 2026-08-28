@@ -123,7 +123,10 @@ Search Sharpes to date: 0.805, 0.745, 0.705 (`sma_trend`); 0.542, 0.477, 0.614
    post-2008 subsample must pass independently, and the result must survive dropping
    its largest contributing drawdown event.
 3. Consider that the honest answer may already be visible. Drawdown protection is
-   real and persistent (~13pp post-2008); it costs 3–5 points of annual return. That
+   real and persistent (~13pp post-2008); it costs 3–5 points of annual return.
+   *(Both halves of this sentence are revised by the benchmark addendum below:
+   measured against a same-risk static mix rather than 100% SPY, the cost is
+   roughly zero and the protection is roughly 2–4pp.)* That
    is a *trade*, not an edge, and whether it is worth making is a preference question,
    not one more backtest.
 
@@ -161,3 +164,113 @@ Two numbers worth recording from the newly surfaced confidence block, both for
 
 The holdout remains unconsumed, and is now guarded: a second consumption for the
 same strategy is refused unless explicitly forced, and either way is recorded.
+
+---
+
+## Addendum: benchmarks that need no signal
+
+*Added 2026-08-28. Implements [path_to_trading.md](path_to_trading.md) H1 and H3.*
+
+Every number above compares the strategy to **100% SPY**. That comparison flatters
+any rule that simply holds less equity — and `sma_trend` holds 12.44% volatility
+against SPY's 20.66%. It is, in effect, a 60%-equity portfolio. So the question
+the earlier sections actually answered was not "does the timing signal work" but
+"does 60% equity behave differently from 100% equity", to which the answer was
+never in doubt.
+
+The harness now runs the strategy against a slate of portfolios that require **no
+signal, no timing and no discipline**, all through the same engine, same lag, same
+costs. Two are matched to the strategy's own realised exposure.
+
+### `sma_trend`, full sample (2007-05-30 → 2022-12-30)
+
+| | CAGR | max dd | vol | Sharpe | Δ CAGR | Δ max dd |
+|---|---|---|---|---|---|---|
+| **sma_trend** | 8.32% | −20.83% | 12.44% | 0.705 | — | — |
+| buy & hold SPY | 8.15% | −55.19% | 20.66% | 0.483 | +0.17pp | +34.36pp |
+| **vol-matched 60/40 SPY/BIL** | 5.65% | −36.14% | 12.44% | 0.504 | **+2.67pp** | **+15.32pp** |
+| exposure-matched 73/27 SPY/BIL | 6.54% | −42.87% | 15.10% | 0.495 | +1.79pp | +22.04pp |
+| 60/40 SPY/TLT | 7.58% | −29.92% | 11.59% | 0.689 | +0.74pp | +9.09pp |
+| equal-weight basket | 7.35% | −22.74% | 9.78% | **0.774** | +0.97pp | +1.91pp |
+| inverse-volatility basket | 8.04% | −22.14% | 9.11% | **0.895** | +0.28pp | +1.32pp |
+| 100% cash (BIL) | 0.65% | −0.78% | 0.52% | 1.250 | +7.67pp | −20.05pp |
+
+On the full sample the rule survives its matched benchmark: same volatility,
++2.67pp of CAGR, 15pp less drawdown. That is a real result and it was not
+guaranteed.
+
+But two static portfolios of the same four tickers — equal-weight and
+inverse-volatility, neither of which contains a signal of any kind — **beat it on
+Sharpe** (0.774 and 0.895 against 0.705), with comparable drawdowns. Whatever
+`sma_trend` is doing, simply spreading across the basket did it better per unit of
+risk, and needed no rule to follow.
+
+### The start-date sweep, re-asked against the matched mix
+
+This is where the addendum changes the reading.
+
+**`sma_trend`**
+
+| From | mix | CAGR | matched | Δ CAGR | max dd | matched | Δ max dd |
+|---|---|---|---|---|---|---|---|
+| 2007-05-30 | 60/40 | 8.32% | 5.65% | +2.67pp | −20.83% | −36.14% | +15.32pp |
+| **2010-01-04** | 71/29 | 8.75% | 8.84% | **−0.09pp** | −20.83% | −24.84% | **+4.01pp** |
+| 2013-01-02 | 70/30 | 7.06% | 8.89% | −1.83pp | −20.83% | −24.41% | +3.58pp |
+| 2016-01-04 | 64/36 | 8.29% | 8.07% | +0.22pp | −20.83% | −22.46% | +1.63pp |
+
+Both halves of the earlier conclusion shrink:
+
+- **The 3–5pp annual "cost" was largely a benchmark artifact.** Against a mix
+  carrying the same risk it is −0.09, −1.83 and +0.22 points — call it zero. The
+  rule was not giving up 3–5 points a year to time the market; it was giving them
+  up to hold less stock, which is a choice, not a cost of the signal.
+- **So was most of the protection.** 12.9pp of drawdown saved against buy-and-hold
+  becomes **1.6–4.0pp** against the matched mix. The signal contributes something,
+  but it is a small fraction of what the headline number suggested.
+
+Post-2008, `sma_trend` is roughly neutral against a portfolio that needs no
+discipline to hold: a couple of points of drawdown protection at approximately no
+return cost. That is a much weaker claim than either the pass verdict or the
+earlier "real but expensive trade" framing, and it sits well inside the noise of a
+sample containing about four independent bear markets. As before, the 2007 row is
+the outlier, and as before the reason is 2008.
+
+**`dual_momentum`**
+
+| From | mix | CAGR | matched | Δ CAGR | max dd | matched | Δ max dd |
+|---|---|---|---|---|---|---|---|
+| 2007-05-30 | 72/28 | 8.36% | 6.47% | +1.90pp | −33.72% | −42.34% | +8.62pp |
+| 2010-01-04 | 79/21 | 6.09% | 9.70% | −3.61pp | −33.72% | −27.34% | **−6.38pp** |
+| 2013-01-02 | 87/13 | 5.95% | 10.78% | −4.83pp | −33.72% | −29.79% | **−3.93pp** |
+| 2016-01-04 | 80/20 | 4.09% | 9.71% | −5.62pp | −33.72% | −27.64% | **−6.08pp** |
+
+Post-2008 it is **strictly dominated on both axes** — worse return *and* worse
+drawdown than a static mix at the same risk, in every window. The earlier verdict
+was that its entire edge is 2008; this is the stronger form of it. Nothing further
+is owed to this strategy.
+
+### What this does and does not change
+
+- **No verdict is re-graded.** Both strategies pre-registered against
+  buy-and-hold, and their criteria were fixed before the runs. `sma_trend` still
+  **PASSES** its pre-registration. Moving the bar after seeing results is the
+  failure mode the whole harness exists to prevent, and it does not become
+  acceptable because the new bar is a better one.
+- **The next pre-registration should declare its benchmark.** That is H4, and
+  the exposure-matched mix is the obvious candidate for it. Making a benchmark
+  binding is a decision taken *before* a run, never after.
+- **The recommendation not to spend the holdout stands**, and is now better
+  supported. Promotion is a separate decision from passing, and the evidence the
+  criteria were meant to establish is weaker after this addendum, not stronger.
+- **Trial accounting.** These are re-runs of already-declared configurations, so
+  all 54 were logged as `robustness`. The deflation is unchanged and no search
+  budget was spent producing this section.
+
+### Ledger state
+
+141 trials, 15 of them `search`. Holdout: **unconsumed.**
+
+(The `search` count is 15 rather than the 6 recorded earlier in this document: a
+re-run of both strategies on 2026-08-28T00:08 was logged as `search`, before the
+`--kind` flag existed. It is left as recorded — the ledger is append-only, and a
+count that can be edited downward is not a guardrail.)

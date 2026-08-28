@@ -9,6 +9,18 @@ that follows. Do the fiddling while it is still free.
 
 Items marked **[decision]** need Ben; the rest are buildable without input.
 
+> **Status (2026-08-28): Phases 0–3 are complete; this document is now a record, not
+> a plan.** The harness was built and armed, two strategies were pre-registered and
+> run, robustness swept, and both graded against their pre-committed criteria —
+> results in [findings.md](findings.md). Phase 3 landed on *do not promote*: neither
+> result justified spending the holdout, so **Phase 4 has not happened** and Phase 5
+> is not yet relevant.
+>
+> The live plan is [path_to_trading.md](path_to_trading.md), which works backwards
+> from actually placing trades and supersedes everything below. Phases 4 and 5 here
+> survive inside it as sections B and E. Read this document for how the research half
+> got built; read that one for what is left.
+
 ---
 
 ## Phase 0 — Close the record
@@ -134,7 +146,10 @@ Only relevant if Phase 4 clears.
 ## Deferred
 
 - **Block bootstrap confidence intervals** (Tier 2) — worth building once there is a result
-  worth putting an interval around, not before.
+  worth putting an interval around, not before. *That condition is now arguably met:
+  the exposure-matched comparison (H1) left a 1.6–4.0pp post-2008 effect, which is
+  exactly the size where a point estimate is not an answer. Tracked as
+  [path_to_trading.md](path_to_trading.md) G4.*
 - **Walk-forward analysis** — earns its cost only if parameters are ever re-fit. With a
   pre-committed parameter it adds little.
 - **`uv` migration** — cheap two-way door, no urgency.

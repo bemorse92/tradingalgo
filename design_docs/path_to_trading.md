@@ -8,6 +8,11 @@ looks like. Sequencing matters more than sizing.
 Written 2026-08-28. Assumes familiarity with [findings.md](findings.md) and
 [research_guardrails.md](research_guardrails.md).
 
+**Progress.** Objectives are marked **Built** inline as they land, with what the
+result actually was — an objective completed without recording what it changed is
+half a record. Done so far: **H1** and **H3** (2026-08-28). Everything else below
+is open.
+
 ---
 
 ## The end state
@@ -28,6 +33,12 @@ The research half is built and working: pinned data, a simulator that cannot see
 future, pre-registration, an automatic trial log, mechanically graded criteria, a
 guarded one-shot holdout, and reports that surface per-event dependence, whipsaw, and
 robustness. Two strategies have been through it end to end.
+
+Since 2026-08-28 it also compares every strategy against a slate of portfolios that
+need no signal to follow — including static mixes matched to the strategy's own
+realised volatility and equity exposure (H1, H3). That comparison did not overturn
+the existing findings but it shrank them substantially on both sides, and it is
+what a result now has to survive to mean anything.
 
 **None of it produces an instruction.** The framework can currently tell you what
 *would have* happened. It has no concept of today, of what Ben holds, or of a trade.
@@ -61,6 +72,9 @@ a given result predates or postdates the freeze.
 **A3. Permission to conclude "none of them."**
 This is a real and reasonably likely outcome. The evidence so far is that drawdown
 protection is real but costs 3–5 points of annual return — a trade, not an edge.
+H1 has since narrowed this further: measured against a same-risk static mix rather
+than 100% SPY, the post-2008 protection is 1.6–4.0pp at approximately no return
+cost. Smaller on both sides, and well inside the noise.
 
 *Needed:* the decision gate must accept "do not trade" as a valid, recorded endpoint
 rather than an embarrassing dead end.
@@ -292,6 +306,19 @@ realised exposure or volatility.
 than a curiosity. **This is the single most likely way the current results get
 overturned.**
 
+**Built 2026-08-28** (`backtest/benchmarks.py`). Volatility-matched and
+exposure-matched SPY/BIL mixes are built for every run and shown in the standard
+report and the start-date sweep. Results in
+[findings.md](findings.md#addendum-benchmarks-that-need-no-signal): it did not
+overturn the findings but it materially shrank them. `sma_trend` clears the matched
+bar on the full sample and is roughly neutral against it post-2008 — the 3–5pp
+annual "cost" was mostly a benchmark artifact, and so was most of the 12.9pp of
+protection. `dual_momentum` is strictly dominated on both axes post-2008.
+
+Reported, not graded: both strategies pre-registered against buy-and-hold, and
+making the matched mix binding after seeing results would be exactly the move the
+harness exists to prevent. Binding it is H4's job, on the next pre-registration.
+
 **H2. A random-timing benchmark.**
 Related but distinct: a rule that enters and exits at random with the *same turnover*
 and *same time-in-market* as the strategy. This isolates whether the signal carries
@@ -305,12 +332,29 @@ single one, so the strategy's percentile against luck is visible.
 what a reasonable person would otherwise do, and 60/40 in particular is the comparison
 the tactical-fund literature used when it found most such funds underperforming.
 
+**Built 2026-08-28**, alongside H1. Inverse-volatility is restricted to the risky
+sleeves: including BIL makes it degenerate, since near-zero volatility would take
+essentially the whole portfolio. The unexpected result is that equal-weight and
+inverse-volatility static baskets **beat `sma_trend` on Sharpe** over the full
+sample (0.774 and 0.895 against 0.705) at comparable drawdowns, with no signal of
+any kind. Worth taking seriously: spreading across the basket outperformed timing
+it, per unit of risk.
+
 **H4. Benchmark as a declared choice.**
 Which benchmark a strategy must beat should be part of its pre-registration, not
 selected afterwards from whichever it happens to beat.
 
 *Done when:* benchmark selection is declared data on the strategy, graded like any
 other criterion.
+
+**Now the live piece of section H.** H1 built the matched benchmark but deliberately
+left it *reported, not graded*: `sma_trend` and `dual_momentum` pre-registered
+against buy-and-hold, and binding them to a harder bar after seeing the numbers is
+the move the harness exists to prevent. So the matched mix is currently a table
+nobody has to answer to. H4 closes that — `Criterion` needs to resolve against a
+*declared* benchmark rather than assuming buy-and-hold, and the strategy schema
+needs a `benchmark` field the validator insists on. Cheap, and it is what makes
+every future H1 comparison binding.
 
 ---
 
@@ -383,9 +427,30 @@ document.
 ## Rough sequence
 
 **G and H come before A**, and are the highest-value remaining research work: they
-determine whether the existing results mean anything. H1 in particular could overturn
-the current findings entirely, and doing it after selecting a candidate would be
-wasted effort.
+determine whether the existing results mean anything.
+
+**H1 and H3 are done (2026-08-28), and the sequencing argument held.** H1 was the
+item most likely to overturn the findings, and doing it before selecting a candidate
+was correct: it changed what the existing results mean. It did not kill `sma_trend`
+— the rule clears its matched benchmark on the full sample — but post-2008 it is
+roughly neutral against a static mix at the same risk, and both the apparent cost
+(3–5pp of CAGR) and the apparent benefit (12.9pp of drawdown protection) were
+mostly artifacts of comparing a ~60%-equity portfolio to a 100%-equity one.
+`dual_momentum` is now strictly dominated post-2008 and is finished. An unplanned
+finding worth chasing: signal-free equal-weight and inverse-volatility baskets beat
+`sma_trend` on Sharpe, which points at allocation rather than timing.
+
+**What remains in H, in order:** **H4** (make the declared benchmark binding — small,
+and it is what stops H1 being a table nobody answers to), then **H2** (random-timing
+null, which separates "the signal carries information" from "being out of the market
+sometimes does all the work" — the natural next question given how small the matched
+edge turned out to be).
+
+**G is now the larger open block**, and H1's outcome raises the value of two of its
+items in particular: **G2** (reproduce Faber's published numbers) because the matched
+benchmark is now doing real work and a pipeline bug would be expensive, and **G4**
+(block bootstrap intervals) because a 1.6–4.0pp effect is exactly the size where a
+point estimate is not an answer. G1, G3 and G5 are unchanged.
 
 **I runs alongside them.** I1 (hypothesis assistance) is available immediately. I2
 (null calibration) is most valuable *just before* A, since its output is the threshold
