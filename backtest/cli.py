@@ -15,7 +15,18 @@ import importlib
 import inspect
 import sys
 
-from . import benchmarks, data, engine, ledger, report, reproduce, runner, stats, validate
+from . import (
+    benchmarks,
+    bootstrap,
+    data,
+    engine,
+    ledger,
+    report,
+    reproduce,
+    runner,
+    stats,
+    validate,
+)
 from .runner import RunReport, run_strategy
 from .strategy import Strategy
 
@@ -130,6 +141,43 @@ def _print_report(rep: RunReport) -> None:
     print(
         "\n  Live results will not settle this within any relevant horizon; the\n"
         "  evidence has to come from discipline about the sample that exists."
+    )
+
+    print(report.section("How much of this is luck"))
+    graded_ci = bootstrap.confidence(best.result.returns, graded.result.returns)
+    print(report.intervals(graded_ci))
+    print(
+        "\n  Blocks of consecutive days, not single days: these rules exist because\n"
+        "  of serial dependence, and shuffling it away would price a world they were\n"
+        "  never claimed to work in. Strategy and benchmark are resampled on the\n"
+        "  same blocks, so the difference rows ask 'what if history had gone\n"
+        "  differently', not 'what if these two were unrelated'."
+    )
+
+    print(report.section("Interval across block lengths"))
+    print(
+        report.interval_sensitivity(
+            bootstrap.sensitivity(best.result.returns, graded.result.returns),
+            "max drawdown vs benchmark",
+        )
+    )
+
+    matched = rep.vol_matched
+    if matched is not None and matched.key != graded.key:
+        print(report.section(f"Diagnostic: the same intervals against {matched.name}"))
+        print(report.intervals(bootstrap.confidence(best.result.returns, matched.result.returns)))
+        print(
+            "\n  Diagnostic, like the benchmark slate above: this is not the bar the\n"
+            "  strategy declared. It is here because a difference measured against a\n"
+            "  portfolio at the same risk is the one most likely to be noise."
+        )
+
+    print(
+        "\n  A bootstrap quantifies uncertainty in the data you have. It does not\n"
+        "  manufacture information and cannot invent a bear market of a kind never\n"
+        "  observed -- four resampled bear markets are still four bear markets.\n"
+        "  Drawdown intervals are optimistic for the same reason: resampling chops\n"
+        "  the long declines that produce the worst ones."
     )
 
     print(report.section("Followability (whipsaw / regret)"))

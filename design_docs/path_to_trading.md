@@ -10,8 +10,8 @@ Written 2026-08-28. Assumes familiarity with [findings.md](findings.md) and
 
 **Progress.** Objectives are marked **Built** inline as they land, with what the
 result actually was — an objective completed without recording what it changed is
-half a record. Done so far: **H1**, **H3**, **H4** and **G2** (2026-08-28).
-Everything else below is open.
+half a record. Done so far: **H1**, **H3**, **H4** and **G2** (2026-08-28) and
+**G4** (2026-08-29). Everything else below is open.
 
 ---
 
@@ -329,6 +329,41 @@ and it cannot invent a bear market of a type never observed.
 *Done when:* headline claims carry intervals, and the intervals are wide enough to be
 uncomfortable, which they will be.
 
+**Built 2026-08-29** (`backtest/bootstrap.py`; every `run` now prints intervals).
+They were wide enough to be uncomfortable.
+
+A paired stationary block bootstrap (Politis & Romano), 10,000 resamples, mean
+block 63 trading days, seed pinned, 90% coverage. Blocks rather than single days
+because these rules exist *because* of serial dependence and shuffling it away
+would price a world they were never claimed to work in; paired because the claims
+are differences and the two series meet the same market on the same days —
+resampling them independently invents variance the comparison does not have.
+
+**Of sixteen differences measured across both strategies and two start dates, two
+exclude zero, and one of those is bad news.** `sma_trend`'s full-sample drawdown
+reduction against buy & hold survives at +34.36pp [+0.97, +42.01] — an interval
+spanning forty points that clears zero by a hair. And `dual_momentum` post-2008
+underperforms buy & hold on CAGR by −5.84pp [−10.42, −1.83], which is
+distinguishable in the wrong direction.
+
+**Every comparison against the vol-matched mix straddles zero**, including the one
+the live claim rests on: post-2008 drawdown protection of +4.01pp carries
+[−10.83, +10.05]. Against a portfolio at the same risk needing no signal, no
+timing and no discipline, this sample cannot tell `sma_trend` from doing nothing —
+on return, drawdown or Sharpe. Verdicts hold across block lengths of a month, a
+quarter and half a year, so it is not an artifact of the method's one parameter.
+Full tables in [findings.md](findings.md#addendum-what-survives-a-confidence-interval).
+
+Two implementation notes worth keeping. The vectorised statistics are asserted to
+agree with `stats` *exactly*, because `stats.cagr` measures growth from
+`equity.iloc[0]` — which already contains the first period's return — and getting
+that wrong would have put the interval around a slightly different quantity than
+the point estimate printed inside it. And the resample count was measured rather
+than guessed: endpoints move ~1.8pp between seeds at 2,000 resamples, 0.6pp at
+10,000 and 0.5pp at 20,000, so 10,000 is where the curve flattens. The endpoints
+are not worth reading past the first decimal; the verdicts are seed-stable, and a
+test asserts it.
+
 **G5. Regime-conditional evaluation.**
 Aggregate statistics hide that a rule may work in one environment and fail in another.
 2022 already showed this: rising rates broke the defensive sleeves.
@@ -536,10 +571,23 @@ the harness reproduces a century-old published result end to end, so the existin
 findings are not resting on a pipeline bug. That was the cheaper of the two items
 H1 promoted.
 
-**The remaining one is G4** (block bootstrap intervals), because a 1.6–4.0pp effect
-is exactly the size where a point estimate is not an answer — and G2 has now removed
-the competing explanation that the effect is a measurement error. G1, G3 and G5 are
-unchanged.
+**G4 is done (2026-08-29), and it changes the shape of what is left.** The sequence
+removed the competing explanations in order: H1 asked whether the result was just
+holding less equity, and most of it was; G2 asked whether it was a measurement
+error, and it was not; G4 asked whether the remainder is distinguishable from luck,
+and it is not.
+
+That is close to an answer, and it makes **A3** — permission to conclude "none of
+them" — the live item rather than a contingency. The evidence now points there for
+both strategies on the bench. G1, G3 and G5 remain open but are refinements of a
+measurement whose verdict is already "cannot tell"; sharpening it further is
+unlikely to move a result whose interval spans twenty points. **H2** (the
+random-timing null) is in the same position: it would answer *why* the signal
+contributes nothing, which is interesting but no longer decision-relevant.
+
+The honest next step is therefore **A**, not more **G** — with the caveat that A
+must not become a search for a third strategy that clears. The ledger counts, and
+the bar rises with it.
 
 **I runs alongside them.** I1 (hypothesis assistance) is available immediately. I2
 (null calibration) is most valuable *just before* A, since its output is the threshold

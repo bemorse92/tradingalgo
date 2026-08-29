@@ -40,8 +40,9 @@ statistics oracle in tests. No broker/execution API — trades are placed manual
   alternatives a strategy must beat, including exposure- and volatility-matched static
   mixes; the strategy declares which one grades it), `ledger` (append-only trial log),
   `validate` (future-corruption test, parameter budget, prereg presence, holdout gate),
-  `reproduce` (the harness checked end-to-end against published results, on pinned
-  reference data), `report`, `cli`.
+  `bootstrap` (paired stationary block bootstrap; every difference carries a 90%
+  interval), `reproduce` (the harness checked end-to-end against published results, on
+  pinned reference data), `report`, `cli`.
 - `strategies/` — one `Strategy` subclass per strategy, each declaring `rationale`,
   `benchmark`, `fixed` and `fitted` params, paired with a `.prereg.md` committed *before*
   results exist. The

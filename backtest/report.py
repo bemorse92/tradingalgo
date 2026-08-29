@@ -244,6 +244,67 @@ def _describe(criterion) -> str:
     return f"{direction} {criterion.threshold:g}{scope}"
 
 
+def _interval_unit(name: str) -> tuple[float, str]:
+    """Sharpe is a ratio; the rest are percentages. Printing both as pp would lie."""
+    return (1.0, "") if "Sharpe" in name else (100.0, "%")
+
+
+def _interval_cell(value: float, name: str, signed: bool) -> str:
+    scale, unit = _interval_unit(name)
+    if math.isnan(value):
+        return "n/a"
+    if not unit:
+        return f"{value:+.3f}" if signed else f"{value:.3f}"
+    return f"{value * scale:+,.2f}pp" if signed else f"{value * scale:,.2f}%"
+
+
+def intervals(bundle) -> str:
+    """Point estimates with the range the resampling puts around them.
+
+    The `vs benchmark` rows are the ones the project's claims are made of, and the
+    verdict column states in words whether the sample can tell the effect from
+    nothing. A point estimate reads as a fact; the same number beside a wide
+    interval reads as what it is.
+    """
+    rows = [
+        {
+            "metric": i.name,
+            "measured": _interval_cell(i.point, i.name, i.is_difference),
+            "low": _interval_cell(i.low, i.name, i.is_difference),
+            "high": _interval_cell(i.high, i.name, i.is_difference),
+            "what it supports": i.verdict or "--",
+        }
+        for i in bundle.intervals
+    ]
+    header = (
+        f"  {bundle.coverage:.0%} interval from {bundle.resamples:,} stationary-bootstrap "
+        f"resamples, mean block {bundle.block_length} trading days, seed {bundle.seed}"
+    )
+    return header + "\n" + table(rows, ["metric", "measured", "low", "high", "what it supports"])
+
+
+def interval_sensitivity(bundles: Sequence[Any], metric: str) -> str:
+    """One difference, across block lengths.
+
+    Block length is a hidden parameter in the way a start date is. If the verdict
+    changes between a month and half a year, the finding is about the parameter.
+    """
+    rows = []
+    for bundle in bundles:
+        found = bundle.named(metric)
+        if found is None:
+            continue
+        rows.append(
+            {
+                "mean block (days)": bundle.block_length,
+                "low": _interval_cell(found.low, metric, True),
+                "high": _interval_cell(found.high, metric, True),
+                "what it supports": found.verdict or "--",
+            }
+        )
+    return table(rows)
+
+
 def confidence(min_track_record_years: float, deflated: float) -> str:
     """How much the numbers above can actually carry."""
     unbounded = math.isinf(min_track_record_years) or math.isnan(min_track_record_years)

@@ -402,6 +402,108 @@ and requires the reproduction to *stop* agreeing with Faber.
 
 147 trials, 15 of them `search`. Holdout: **unconsumed.**
 
+---
+
+## Addendum: what survives a confidence interval
+
+*Added 2026-08-29. Implements [path_to_trading.md](path_to_trading.md) G4.*
+
+Every number in this document has been a point estimate drawn from one history
+containing about four independent bear markets. G2 established that those numbers
+are not a pipeline bug. This addendum asks the remaining question: are they
+distinguishable from luck?
+
+Intervals come from a paired stationary block bootstrap — blocks of consecutive
+days, because these rules exist *because* of serial dependence and shuffling it
+away would price a world they were never claimed to work in; paired, because the
+claims are differences and the two series meet the same market on the same days.
+10,000 resamples, mean block 63 trading days, seed pinned, 90% coverage.
+
+### The differences, with their intervals
+
+Point estimate, then the 90% interval. **Bold** marks the only rows that exclude
+zero.
+
+**`sma_trend`**
+
+| From | Against | Δ CAGR | Δ max drawdown | Δ Sharpe |
+|---|---|---|---|---|
+| 2007-05-30 | buy & hold | +0.17pp [−5.66, +6.45] | **+34.36pp [+0.97, +42.01]** | +0.22 [−0.14, +0.58] |
+| 2007-05-30 | vol-matched mix | +2.67pp [−1.33, +6.78] | +15.32pp [−11.22, +20.84] | +0.20 [−0.16, +0.56] |
+| 2010-01-04 | buy & hold | −3.18pp [−7.22, +0.53] | +12.89pp [−3.51, +20.20] | +0.00 [−0.27, +0.25] |
+| 2010-01-04 | vol-matched mix | −0.09pp [−3.42, +3.10] | +4.01pp [−10.83, +10.05] | −0.01 [−0.28, +0.24] |
+
+**`dual_momentum`**
+
+| From | Against | Δ CAGR | Δ max drawdown | Δ Sharpe |
+|---|---|---|---|---|
+| 2007-05-30 | buy & hold | +0.21pp [−5.56, +6.41] | +21.47pp [−2.87, +35.57] | +0.13 [−0.19, +0.50] |
+| 2007-05-30 | vol-matched mix | +1.90pp [−2.61, +6.52] | +8.62pp [−12.38, +22.17] | +0.12 [−0.21, +0.49] |
+| 2010-01-04 | buy & hold | **−5.84pp [−10.42, −1.83]** | +0.00pp [−10.54, +7.65] | −0.23 [−0.48, +0.03] |
+| 2010-01-04 | vol-matched mix | −3.61pp [−7.68, +0.16] | −6.38pp [−17.41, +1.70] | −0.24 [−0.48, +0.03] |
+
+### Reading this
+
+**Two of sixteen differences exclude zero, and one of them is bad news.**
+
+1. `sma_trend`'s full-sample drawdown reduction against buy & hold. Note the
+   shape: a point estimate of +34.36pp with a lower bound of **+0.97pp**. The
+   interval excludes zero by a hair while spanning forty points. "This reduced
+   drawdown by something between one point and forty" is technically a finding
+   and practically not one.
+2. `dual_momentum`'s post-2008 CAGR against buy & hold, at −5.84pp
+   [−10.42, −1.83]. Distinguishable underperformance. That strategy was already
+   finished; this is the epitaph.
+
+**Every single comparison against the vol-matched mix straddles zero.** Including
+the one the project's live claim rests on: post-2008 drawdown protection of
++4.01pp has an interval of [−10.83, +10.05]. Against a portfolio holding the same
+risk with no signal, no timing and no discipline, this sample cannot tell
+`sma_trend` apart from doing nothing — on return, on drawdown, or on Sharpe.
+
+The verdicts are stable across block lengths of a month, a quarter and half a
+year, so this is not an artifact of the one parameter the method has.
+
+### What this does not say
+
+- **It is not proof the rule does nothing.** A wide interval is ignorance, not
+  refutation. The honest statement is that ~15 years containing about four
+  independent bear markets cannot resolve an effect of this size, which is a fact
+  about the sample as much as about the rule.
+- **It does not make the drawdown protection unreal.** `sma_trend` did hold a
+  −20.83% drawdown against SPY's −55.19%. What the interval denies is that we can
+  attribute the part not explained by holding less equity to the *signal* rather
+  than to how this particular history fell out.
+- **A bootstrap cannot invent a bear market of a kind never observed.** Four
+  resampled bear markets are still four bear markets. If anything this
+  understates the uncertainty, since it can only rearrange crises we have seen.
+- **Drawdown intervals are optimistic** by construction: resampling chops the long
+  declines that produce the worst drawdowns. That biases the *levels*; the paired
+  differences are far less affected, because both series are cut in the same
+  places. It is another reason to read the difference rows and not the level rows.
+
+### Where this leaves the project
+
+The sequence has now removed the two competing explanations for the headline
+result in order. H1 asked whether it was just holding less equity, and most of it
+was. G2 asked whether it was a measurement error, and it was not. G4 asks whether
+what remains is distinguishable from luck, and it is not.
+
+That is close to an answer. [path_to_trading.md](path_to_trading.md) **A3** exists
+precisely so "do not trade" can be a recorded endpoint with reasoning attached
+rather than an embarrassment, and the evidence now points there for both
+strategies currently on the bench. What it does *not* license is quietly searching
+for a third strategy until something clears — the ledger counts, and the bar rises
+with it.
+
+### Ledger state
+
+174 trials, 15 of them `search`. Holdout: **unconsumed.**
+
+The bootstrap logs nothing: an interval measures a result that already exists, it
+is not a new configuration. The additional trials are re-runs performed to produce
+the tables above, all `robustness`.
+
 (The `search` count is 15 rather than the 6 recorded earlier in this document: a
 re-run of both strategies on 2026-08-28T00:08 was logged as `search`, before the
 `--kind` flag existed. It is left as recorded — the ledger is append-only, and a

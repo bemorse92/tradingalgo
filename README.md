@@ -60,8 +60,10 @@ Choosing among results is `search` whatever it is called.
   static mixes matched to its own volatility and equity exposure; which one grades a
   strategy is declared on it in advance), `criteria`
   (pre-registered bars, graded mechanically), `ledger` (append-only trial log),
-  `validate` (look-ahead detection, pre-registration gate, holdout gate), `reproduce`
-  (the harness checked against externally published results), `runner`, `report`, `cli`.
+  `validate` (look-ahead detection, pre-registration gate, holdout gate), `bootstrap`
+  (paired block-bootstrap intervals, so headline claims carry a range rather than a
+  point), `reproduce` (the harness checked against externally published results),
+  `runner`, `report`, `cli`.
 - `strategies/` — one `Strategy` subclass per module, each paired with a `.prereg.md`
   committed *before* its first result exists.
 - `data/` — `snapshots.json` is the committed registry; `cache/` holds the pinned pulls
